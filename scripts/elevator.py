@@ -9,7 +9,7 @@ import numpy as np
 import itertools
 import time
 import logging
-
+logging.getLogger("asyncio").setLevel(logging.DEBUG)
 
 def do_every(seconds):
     def decorator(func):
@@ -86,10 +86,7 @@ class elevator_handler:
         data = await self.elev_get('07000000')
         at_floor = data[1]
         floor = data[2]
-        if not at_floor:
-            return None
-        else:
-            return floor
+        return floor if at_floor else None
 
     async def get_stop_button(self):
         return (await self.elev_get('08000000'))[1]
