@@ -8,6 +8,7 @@ import asyncio
 import numpy as np
 import itertools
 
+
 class elevator_handler:
 
     def __init__(self, port=15657, floor_n=4):
@@ -18,6 +19,7 @@ class elevator_handler:
         self.floor_n = floor_n
         self.last_floor = None
         self.reader_lock = asyncio.Lock()
+        self.writer_lock = asyncio.Lock()
 
     async def __aenter__(self):
         self.reader, self.writer = await asyncio.open_connection(
@@ -29,8 +31,9 @@ class elevator_handler:
         await self.writer.wait_closed()
 
     async def elev_tell(self, command):
-        self.writer.write(bytearray.fromhex(command))
-        await self.writer.drain()
+        async with self.writer_lock:
+            self.writer.write(bytearray.fromhex(command))
+            await self.writer.drain()
 
     async def elev_get(self, command):
         await self.elev_tell(command)
@@ -93,9 +96,11 @@ class elevator_handler:
             await self.go_down()
             while await self.get_floor() != 0:
                 await asyncio.sleep(0.1)
+            await asyncio.sleep(1)
             await self.go_up()
             while await self.get_floor() != 3:
                 await asyncio.sleep(0.1)
+            await asyncio.sleep(1)
 
 
 async def main():
