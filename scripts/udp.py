@@ -4,9 +4,9 @@
 Created on Tue Feb 11 16:18:13 2020
 
 @author: emil
-"""
 
-"""Provide high-level UDP endpoints for asyncio.
+
+Provide high-level UDP endpoints for asyncio.
 Example:
 async def main():
     # Create a local UDP enpoint
@@ -20,17 +20,10 @@ async def main():
     # This prints: Got 'Hey Hey, My My' from 127.0.0.1 port 8888
     print(f"Got {data!r} from {address[0]} port {address[1]}")
 """
-
-__all__ = ['open_local_endpoint', 'open_remote_endpoint']
-
-
-# Imports
-
 import asyncio
-import warnings
+import socket
+import logging
 
-
-# Datagram protocol
 
 class DatagramEndpointProtocol(asyncio.DatagramProtocol):
     """Datagram protocol for the endpoint high-level interface."""
@@ -40,13 +33,17 @@ class DatagramEndpointProtocol(asyncio.DatagramProtocol):
 
     # Protocol methods
 
-    def connection_made(self, transport):
+    def connection_made(self, transport: asyncio.transports.DatagramTransport):
         self._endpoint._transport = transport
+
+        sock = transport.get_extra_info("socket")  # type: socket.socket
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
     def connection_lost(self, exc):
         if exc is not None:  # pragma: no cover
             msg = 'Endpoint lost the connection: {!r}'
-            warnings.warn(msg.format(exc))
+            logging.warning(msg.format(exc))
         self._endpoint.close()
 
     # Datagram protocol methods
@@ -56,7 +53,7 @@ class DatagramEndpointProtocol(asyncio.DatagramProtocol):
 
     def error_received(self, exc):
         msg = 'Endpoint received an error: {!r}'
-        warnings.warn(msg.format(exc))
+        logging.warning(msg.format(exc))
 
 
 # Enpoint classes
@@ -80,7 +77,7 @@ class Endpoint:
         try:
             self._queue.put_nowait((data, addr))
         except asyncio.QueueFull:
-            warnings.warn('Endpoint queue is full')
+            logging.warning('Endpoint queue is full')
 
     def close(self):
         # Manage flag
@@ -121,6 +118,9 @@ class Endpoint:
         self._transport.abort()
         self.close()
 
+    def que_is_empty(self):
+        return self._queue.empty()
+
     # Properties
 
     @property
@@ -134,146 +134,11 @@ class Endpoint:
         return self._closed
 
 
-class LocalEndpoint(Endpoint):
-    """High-level interface for UDP local enpoints.
-    It is initialized with an optional queue size for the incoming datagrams.
-    """
-    pass
-
-
-class RemoteEndpoint(Endpoint):
-    """High-level interface for UDP remote enpoints.
-    It is initialized with an optional queue size for the incoming datagrams.
-    """
-
-    def send(self, data):
-        """Send a datagram to the remote host."""
-        super().send(data, None)
-
-    async def receive(self):
-        """ Wait for an incoming datagram from the remote host.
-        This method is a coroutine.
-        """
-        data, addr = await super().receive()
-        return data
-
-
-# High-level coroutines
-
-async def open_datagram_endpoint(
-        host, port, *, endpoint_factory=Endpoint, remote=False, **kwargs):
-    """Open and return a datagram endpoint.
-    The default endpoint factory is the Endpoint class.
-    The endpoint can be made local or remote using the remote argument.
-    Extra keyword arguments are forwarded to `loop.create_datagram_endpoint`.
-    """
-    loop = asyncio.get_event_loop()
-    endpoint = endpoint_factory()
-    kwargs['remote_addr' if remote else 'local_addr'] = host, port
-    kwargs['protocol_factory'] = lambda: DatagramEndpointProtocol(endpoint)
-    await loop.create_datagram_endpoint(**kwargs)
-    return endpoint
-
-
-async def open_local_endpoint(
+async def open_endpoint(
         host='0.0.0.0', port=0, *, queue_size=None, **kwargs):
-    """Open and return a local datagram endpoint.
-    An optional queue size arguement can be provided.
-    Extra keyword arguments are forwarded to `loop.create_datagram_endpoint`.
-    """
-    return await open_datagram_endpoint(
-        host, port, remote=False,
-        endpoint_factory=lambda: LocalEndpoint(queue_size),
-        **kwargs)
-
-
-async def open_remote_endpoint(
-        host, port, *, queue_size=None, **kwargs):
-    """Open and return a remote datagram endpoint.
-    An optional queue size arguement can be provided.
-    Extra keyword arguments are forwarded to `loop.create_datagram_endpoint`.
-    """
-    return await open_datagram_endpoint(
-        host, port, remote=True,
-        endpoint_factory=lambda: RemoteEndpoint(queue_size),
-        **kwargs)
-
-
-# Testing
-
-try:
-    import pytest
-    pytestmark = pytest.mark.asyncio
-except ImportError:  # pragma: no cover
-    pass
-
-
-async def test_standard_behavior():
-    local = await open_local_endpoint()
-    remote = await open_remote_endpoint(*local.address)
-
-    remote.send(b'Hey Hey')
-    data, address = await local.receive()
-
-    assert data == b'Hey Hey'
-    assert address == remote.address
-
-    local.send(b'My My', address)
-    data = await remote.receive()
-    assert data == b'My My'
-
-    local.abort()
-    assert local.closed
-
-    with pytest.warns(UserWarning):
-        await asyncio.sleep(1e-3)
-        remote.send(b'U there?')
-        await asyncio.sleep(1e-3)
-
-    remote.abort()
-    assert remote.closed
-
-
-async def test_closed_endpoint():
-    local = await open_local_endpoint()
-    future = asyncio.ensure_future(local.receive())
-    local.abort()
-    assert local.closed
-
-    with pytest.raises(IOError):
-        await future
-
-    with pytest.raises(IOError):
-        await local.receive()
-
-    with pytest.raises(IOError):
-        await local.send(b'test', ('localhost', 8888))
-
-    with pytest.raises(IOError):
-        local.abort()
-
-
-async def test_queue_size():
-    local = await open_local_endpoint(queue_size=1)
-    remote = await open_remote_endpoint(*local.address)
-
-    remote.send(b'1')
-    remote.send(b'2')
-    with pytest.warns(UserWarning):
-        await asyncio.sleep(1e-3)
-        assert await local.receive() == (b'1', remote.address)
-    remote.send(b'3')
-    assert await local.receive() == (b'3', remote.address)
-
-    remote.send(b'4')
-    await asyncio.sleep(1e-3)
-    local.abort()
-    assert local.closed
-    assert await local.receive() == (b'4', remote.address)
-
-    remote.abort()
-    assert remote.closed
-
-
-if __name__ == '__main__':  # pragma: no cover
-    pytest.main([__file__])
+    loop = asyncio.get_event_loop()
+    endpoint = Endpoint(queue_size)
+    await loop.create_datagram_endpoint(
+        protocol_factory=lambda: DatagramEndpointProtocol(endpoint),
+        local_addr=(host, port))
+    return endpoint

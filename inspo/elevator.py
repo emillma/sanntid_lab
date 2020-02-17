@@ -39,6 +39,7 @@ class elevator_handler:
         self.reader_lock = asyncio.Lock()
         self.writer_lock = asyncio.Lock()
         self.every = 0.1
+
     async def __aenter__(self):
         self.reader, self.writer = await asyncio.open_connection(
             self.TCP_IP, self.TCP_PORT)
@@ -126,7 +127,6 @@ class elevator_handler:
                 await self.set_floor_indicator(floor)
                 self.last_floor = floor
             await asyncio.sleep(0.1)
-
 
 
 async def main():
