@@ -14,7 +14,7 @@ class ElevatorLink:
         self.TCP_PORT = port
         self.BUFFER_SIZE = 1024
 
-        self.floor_n = floor_n
+        self.NUMBER_OF_FLOORS = floor_n
         self.last_floor = None
         self.reader_lock = asyncio.Lock()
         self.writer_lock = asyncio.Lock()
@@ -74,3 +74,7 @@ class ElevatorLink:
 
     async def get_obstruction_switch(self):
         return (await self.elev_get('09000000'))[1]
+
+    @property
+    def floor_n(self):
+        return self.NUMBER_OF_FLOORS
