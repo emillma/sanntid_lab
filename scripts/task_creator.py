@@ -36,10 +36,21 @@ async def poll_buttons(elevator_link):
 
 # common task
 def create_task_get(floor, ud, timestamp):
-    print("Get task")
+    task_dict = {
+        "floor": floor,
+        "ud": ud,
+        "timestamp": timestamp
+    }
+    return task_dict
+    #dictionary floor, up, timestamp, retunrer
 
 def create_done_get(floor, ud, timestamp):
-    print("Done get")
+    task_dict = {
+        "floor": floor,
+        "ud": ud,
+        "timestamp": timestamp
+    }
+    return task_dict
 
 def create_select(floor, type, timestamp, edt):
     print("Selected")
