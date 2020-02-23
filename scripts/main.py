@@ -9,6 +9,13 @@ from elevator_link import ElevatorLink
 import asyncio
 import logging
 logging.basicConfig(level=logging.DEBUG)
+import random
+
+
+
+def stresser(elevatro_link):
+    for i
+
 async def main():
     async with ElevatorLink() as el:
         while 1:
