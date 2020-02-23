@@ -17,25 +17,8 @@ def merge_lists(list_1, list_2, sort_keys: list, choose_func):
     Merge two lists into one. They have to be sorted by the same sort keys.
     The sort keys also defines the uniqueness of an element
 
-    Parameters
-    ----------
-    list_1 : TYPE
-        DESCRIPTION.
-    list_2 : TYPE
-        DESCRIPTION.
-    sort_keys : list
-        DESCRIPTION.
-    eval_func : TYPE
-        DESCRIPTION.
-
-    Returns
-    -------
-    out : TYPE
-        DESCRIPTION.
-
     """
-    """Merges two lists
-    """
+
     out = []
     short, long = sorted([list_1, list_2], key=lambda x: len(x))
     j = 0
