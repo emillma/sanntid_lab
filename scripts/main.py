@@ -12,15 +12,11 @@ logging.basicConfig(level=logging.DEBUG)
 import random
 
 
-
-def stresser(elevatro_link):
-    for i
-
 async def main():
     async with ElevatorLink() as el:
         while 1:
-            await asyncio.sleep(1)
-            print(await el.get_floor())
+            await asyncio.sleep(0,1)
+            print(await el.get_order_button(1,1))
 
 
 asyncio.run(main())

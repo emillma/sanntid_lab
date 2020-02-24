@@ -6,6 +6,8 @@ Created on Mon Feb  3 12:07:36 2020
 """
 import asyncio
 import logging
+from __future__ import annotations
+
 
 class ElevatorLink:
 
@@ -98,6 +100,8 @@ class ElevatorLink:
         return await self._elev_tell(f'05{value:02x}0000')
 
     async def get_order_button(self, floor, button):
+        """0: up, 1: down, 2, cab
+        """
         retval, data = await self._elev_get(f'06{button:02x}{floor:02x}00')
         return (retval, data[1]) if not retval else (retval, None)
 
