@@ -22,7 +22,7 @@ def obstruction()
     # TODO
     return 0
 
-def go_to_floor()
+def go_to_new_floor()
     # TODO
     return 1
 
@@ -38,7 +38,7 @@ class Transition(object):
     def Execute(self):
         print("Transitioning")
 
-#STATE OBJECT
+#EXAMPLE STATE OBJECT
 class State(object):
     def __init__(self, elevator_state_machine):
         self.elevator_state_machine = elevator_state_machine
@@ -59,7 +59,7 @@ class State(object):
 # STATES
 class BetweenFloorsNoDirection(State):
     def __init__(self, elevator_state_machine):
-        super(BetweenFloorsNoDirection, self).__init__()
+        super(BetweenFloorsNoDirection, self).__init__(elevator_state_machine)
 
     def Enter(self):
         super(BetweenFloorsNoDirection, self).Enter()
@@ -69,6 +69,8 @@ class BetweenFloorsNoDirection(State):
             self.elevator_state_machine.ToTransition("toTransit")
         else:
             self.elevator_state_machine.ToTransition("toSelf")
+    def Exit(self):
+        pass
 
 class Transit(State):
     def __init__(self, elevator_state_machine):
@@ -90,6 +92,9 @@ class Transit(State):
         else:
             self.elevator_state_machine.ToTransition("toSelf")
 
+    def Exit(self):
+        pass
+
 
 class AtFloorDoorClosed(State):
     def __init__(self, elevator_state_machine):
@@ -105,7 +110,7 @@ class AtFloorDoorClosed(State):
                 if open_door():
                     self.elevator_state_machine.ToTransition("toAtFloorDoorOpen")
                 else:
-                    if go_to_floor():
+                    if go_to_new_floor():
                         self.elevator_state_machine.ToTransition("toTransit")
                     else:
                         self.elevator_state_machine.ToTransition("toSelf")
@@ -114,6 +119,8 @@ class AtFloorDoorClosed(State):
         else:
             self.elevator_state_machine.ToTransition("toAtFloorDoorOpen")
 
+    def Exit(self):
+        pass
 
 class AtFloorDoorOpen(State):
     def __init__(self, elevator_state_machine):
@@ -129,7 +136,9 @@ class AtFloorDoorOpen(State):
         else:
             self.elevator_state_machine.ToTransition("toSelf")
 
-
+    def Exit(self):
+        pass
+    
 #ELEVATOR STATE MACHINE
 
 class ElevatorStateMachine(object):
@@ -155,15 +164,16 @@ class ElevatorStateMachine(object):
 
     def Execute(self):
         if self.trans:
-            self.curState.Exit()
+            self.cur_state.Exit()
             self.trans.Execute()
             self.SetState(self.trans.toState)
             self.cur_state.Enter()
             self.trans = None
         self.cur_state.Execute()
 
-class Elevator(# TODO):
-    def __init__(self):
+class Elevator(object):
+    def __init__(self, char):
+        self.char = char
         self.elevator_state_machine = elevator_state_machine(self)
 
         self.elevator_state_machine.AddState("BetweenFloorsNoDirection", BetweenFloorsNoDirection(self.elevator_state_machine))
@@ -177,6 +187,11 @@ class Elevator(# TODO):
         self.elevator_state_machine.AddTransition("toAtFloorDoorOpen", Transition("AtFloorDoorOpen")
 
         self.elevator_state_machine.SetState("BetweenFloorsNoDirection")
+
+    def SetState(self, stateName):
+            self.curState = self.states[stateName]
+
+    def Transist
     def Execute(self):
         self.elevator_state_machine.Execute()
 
