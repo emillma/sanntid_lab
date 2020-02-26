@@ -12,7 +12,7 @@ import asyncio
 
 class NetworkLink:
 
-    def __init__(self, port, queue_size = 10):
+    def __init__(self, port, queue_size = 100):
         self.port = port
         self.endpoint = None
         self.queue_size = queue_size
@@ -29,6 +29,9 @@ class NetworkLink:
     async def broadcast(self, data):
         self.endpoint.send(data, self.out_addr)
 
+    def queie_is_empty(self):
+        return self.endpoint.que_is_empty()
+
     async def pop(self):
         data, addr = await self.endpoint.receive()
         return data, addr
@@ -38,7 +41,8 @@ async def main():
     async with NetworkLink(9000) as nl:
         while 1:
             await nl.broadcast('hall2'.encode())
-            print(await nl.pop())
+            while not nl.queie_is_empty():
+                print(await nl.pop())
             await asyncio.sleep(1)
 
 if __name__ == '__main__':
