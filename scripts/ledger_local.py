@@ -95,22 +95,16 @@ def select_deselect_msgs_merge(old, new, limit = 1e6):
     return out
 
 
-class Ledger:
 
-    def __init__(self, number_of_floors):
-        self.NUMBER_OF_FLOORS = number_of_floors
-
-
-
-class CommonLedger(Ledger):
+class LocalLedger:
 
     def __init__(self, number_of_floors,
-                 get_done_msgs=None, select_deselect_msgs=None):
+                 deliver_done_msgs=None, select_deselect_msgs=None):
 
         self.NUMBER_OF_FLOORS = number_of_floors
         # floor, up/down, get/done
-        if not np.any(get_done_msgs):
-            self.get_done_msgs = np.zeros((number_of_floors, 2, 2),
+        if not np.any(deliver_done_msgs):
+            self.deliver_done_msgs = np.zeros((number_of_floors, 2, 2),
                                           dtype=np.int64)
         else:
             self.get_done_msgs = get_done_msgs
