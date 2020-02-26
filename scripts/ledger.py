@@ -92,14 +92,23 @@ class Ledger:
 
 class CommonLedger(Ledger):
 
-    def __init__(self, number_of_floors):
+    def __init__(self, number_of_floors,
+                 get_done_msgs=None, select_deselect_msgs=None):
+
         super().__init__(number_of_floors)
         # floor, up/down, get/done
-        self.get_done_msgs = np.zeros((number_of_floors, 2, 2),
-                                      dtype=np.int64)
+        if not get_done_msgs:
+            self.get_done_msgs = np.zeros((number_of_floors, 2, 2),
+                                          dtype=np.int64)
+        else:
+            self.get_done_msgs = get_done_msgs
+
         # floor, up/down, select/deselect, stamp/etd/id
-        self.select_deselect_msgs = np.zeros((number_of_floors, 2, 2, 3),
-                                             dtype=np.int64)
+        if not select_deselect_msgs:
+            self.select_deselect_msgs = np.zeros((number_of_floors, 2, 2, 3),
+                                                 dtype=np.int64)
+        else:
+            self.select_deselect_msgs = select_deselect_msgs
 
 
     def merge(self, other):
@@ -114,6 +123,8 @@ class CommonLedger(Ledger):
 
         select_deselect_msgs = select_msgs_merge(self.select_deselect_msgs,
                                                  other.select_deselect_msgs)
+        return CommonLedger(self.NUMBER_OF_FLOORS, get_done_msgs,
+                            select_deselect_msgs)
 
 
 a = CommonLedger(19)

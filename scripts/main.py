@@ -12,11 +12,13 @@ logging.basicConfig(level=logging.DEBUG)
 import random
 
 
-async def main():
-    async with ElevatorLink() as el:
-        while 1:
-            await asyncio.sleep(0,1)
-            print(await el.get_order_button(1,1))
 
 
-asyncio.run(main())
+# async def main():
+#     async with ElevatorLink() as el:
+#         while 1:
+#             await asyncio.sleep(0,1)
+#             print(await el.get_order_button(1,1))
+
+
+# asyncio.run(main())d
