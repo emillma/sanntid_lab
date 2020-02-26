@@ -4,9 +4,9 @@ Created on Mon Feb  3 12:07:36 2020
 
 @author: user_id
 """
+from __future__ import annotations
 import asyncio
 import logging
-from __future__ import annotations
 
 
 class ElevatorLink:
