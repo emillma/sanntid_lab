@@ -34,6 +34,47 @@ async def poll_buttons(elevator_link):
         if np.any(order_buttons) or stop_button or obstruction:
             print(order_buttons)
 
+# common task
+def create_task_get(floor, ud, timestamp):
+    print("Get task")
+
+def create_done_get(floor, ud, timestamp):
+    print("Done get")
+
+def create_select(floor, type, timestamp):
+    print("Selected")
+
+def create_deselect(floor, type, timestamp, id):
+    print("Deselected")
+
+# local task
+
+def create_set_light_on(light_id, timestamp):
+    print("Set light on")
+
+def create_deselect(floor, type, timestamp, id):
+    print("Deselected")
+
+def create_set_light_on(light_id, timestamp):
+    print("Set light on")
+
+def create_set_light_off(light_id, timestamp):
+    print("Set light off")
+
+def create_stop(timestamp):
+    print("Stop")
+
+def create_blocked(timestamp):
+    print("Blocked")
+
+def create_deblocked(timestamp):
+    print("Deblocked")
+
+def create_task_deliver(floor, timestamp):
+    print("Task deliver")
+
+def create_done_deliver(floor, timestamp):
+    print("Done deliver")
 
 async def main():
     async with ElevatorLink() as el:
