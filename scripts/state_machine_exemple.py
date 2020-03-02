@@ -42,6 +42,7 @@ class InitState(State):
         assert self.next_state
         return self.next_state
 
+
 class UpState(State):
 
     def __init__(self, parent):
@@ -60,6 +61,7 @@ class UpState(State):
     async def leave(self):
         assert self.next_state
         return self.next_state
+
 
 class DownState(State):
 
@@ -80,6 +82,7 @@ class DownState(State):
         assert self.next_state
         return self.next_state
 
+
 class StillState(State):
 
     def __init__(self, parent):
@@ -98,9 +101,11 @@ class StillState(State):
         else:
             self.next_state = UpState(self.parent)
         await asyncio.sleep(1)
+
     async def leave(self):
         assert self.next_state
         return self.next_state
+
 
 class Statemachine:
 
@@ -116,6 +121,7 @@ class Statemachine:
             await self.state.process()
             logging.info(f'Leaving {self.state}')
             self.state = await self.state.leave()
+
 
 async def main():
     async with ElevatorLink() as elevator_link:

@@ -14,8 +14,12 @@ def toclock(time, factor=1e6):
         return datetime.datetime.fromtimestamp(time / factor).strftime(
             "%H:%M:%S.%f")
     else:
-        return str(None) + ' '*11
+        return ' ' * 11 + str(None)
 
 
 def now():
+    return int(round(time.time() * 1e6))
+
+
+def stamp():
     return int(round(time.time() * 1e6))

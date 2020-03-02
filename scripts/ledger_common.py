@@ -10,7 +10,7 @@ https://github.com/numba/numba/issues/5100
 from __future__ import annotations
 import numpy as np
 import time
-from utils import toclock
+from utils import toclock, stamp
 
 
 def merge_in_get(get_done, new_timestamp):
@@ -36,7 +36,7 @@ def merge_in_select(old, select_msg, limit=1e6):
     if bool(old[0]) != bool(select_msg[0]):
         # A is default, so if it is b, swap
         if bool(select_msg[0]):
-            old = select_msg
+            old[:] = select_msg
 
     # If both are valid
     elif old[0] and select_msg[0]:
@@ -44,11 +44,11 @@ def merge_in_select(old, select_msg, limit=1e6):
         if (np.abs(old[0] - select_msg[0]) < limit):
             # If the ETD of a is larger than b, swap
             if old[1] > select_msg[1]:
-                old = select_msg
+                old[:] = select_msg
         else:
             # If the timestamp of a is smaller
             if old[0] < select_msg[0]:
-                old = select_msg
+                old[:] = select_msg
     return old
 
 
@@ -56,8 +56,9 @@ def merge_in_deselect(old, deselect_msg, limit=1e6):
     # If only one os valid
     if bool(old[0]) != bool(deselect_msg[0]):
         # A is default, so if it is b, swap
+
         if bool(deselect_msg[0]):
-            old = deselect_msg
+            old[:] = deselect_msg
 
     # If both are valid
     elif old[0] and deselect_msg[0]:
@@ -65,11 +66,11 @@ def merge_in_deselect(old, deselect_msg, limit=1e6):
         if (np.abs(old[0] - deselect_msg[0]) < limit):
             # If the ETD of a is smaller than b, swap
             if old[1] < deselect_msg[1]:
-                old = deselect_msg
+                old[:] = deselect_msg
         else:
             # If the timestamp of a is smaller
             if old[0] < deselect_msg[0]:
-                old = deselect_msg
+                old[:] = deselect_msg
     return old
 
 
@@ -98,18 +99,18 @@ class CommonLedger:
         for floor in range(self.get_done_msgs.shape[0]):
             for ud in [0, 1]:
                 out += f'Floor {floor:2d}, '
-                out += 'UP:' if not ud else 'DOWN:'
-                out += '\n'
+                out += 'UP:  ' if not ud else 'DOWN:'
+                out += '    '
                 time_get = toclock(self.get_done_msgs[floor, ud, 0])
                 time_done = toclock(self.get_done_msgs[floor, ud, 1])
-                out += f'GET: {time_get} \tDONE: {time_done}'
+                out += f'GET: {time_get}     DONE: {time_done}'
                 out += '\n'
         out += '\nSelect Deselect Messages\n'
         for floor in range(self.get_done_msgs.shape[0]):
             for ud in [0, 1]:
                 out += f'Floor {floor:2d}, '
-                out += 'UP:' if not ud else 'DOWN:'
-                out += '\n'
+                out += 'UP:  ' if not ud else 'DOWN:'
+                out += '    '
                 select_stamp = toclock(self.select_deselect_msgs[
                     floor, ud, 0, 0])
                 select_id = self.select_deselect_msgs[floor, ud, 0, 1]
@@ -119,9 +120,9 @@ class CommonLedger:
                     floor, ud, 1, 0])
                 deselect_id = self.select_deselect_msgs[floor, ud, 1, 1]
 
-                out += f'Select:   {select_stamp} {select_id:20} \
-                    {select_etd}'
-                out += f'Deselect: {deselect_stamp} {deselect_id:20}'
+                out += f'Select: {select_stamp}  {select_id:20d}  '
+                out +=  f'{select_etd}     '
+                out += f'Deselect: {deselect_stamp}  {deselect_id:20d}'
                 out += '\n'
 
         return out
@@ -143,16 +144,20 @@ class CommonLedger:
         for floor in range(self.NUMBER_OF_FLOORS):
             for direction in [0, 1]:  # [up, down]
 
-                merge_in_done(self.get_done_msgs[floor, direction],
-                              other.get_done_msgs[floor, direction, 1])
-                merge_in_get(self.get_done_msgs[floor, direction],
-                             other.get_done_msgs[floor, direction, 0])
+                merge_in_done(
+                    get_done_msgs[floor, direction],
+                    other.get_done_msgs[floor, direction, 1])
+
+                merge_in_get(
+                    get_done_msgs[floor, direction],
+                     other.get_done_msgs[floor, direction, 0])
 
                 merge_in_deselect(
-                    self.select_deselect_msgs[floor, direction, 1, :],
+                    select_deselect_msgs[floor, direction, 1, :],
                     other.select_deselect_msgs[floor, direction, 1, :])
+
                 merge_in_select(
-                    self.select_deselect_msgs[floor, direction, 0, :],
+                    select_deselect_msgs[floor, direction, 0, :],
                     other.select_deselect_msgs[floor, direction, 0, :])
 
         return CommonLedger(self.NUMBER_OF_FLOORS, get_done_msgs,
@@ -172,9 +177,9 @@ class CommonLedger:
         select = np.array([timestamp, id, etd], dtype=np.int64)
         merge_in_select(self.select_deselect_msgs[floor, ud, 0, :], select)
 
-    def add_deselect(self, floor, ud, timestamp, id, etd):
-        deselect = np.array([timestamp, id, etd], dtype=np.int64)
-        merge_in_deselect(self.select_deselect_msgs[floor, ud, 0, :], deselect)
+    def add_deselect(self, floor, ud, timestamp, id):
+        deselect = np.array([timestamp, id, 0], dtype=np.int64)
+        merge_in_deselect(self.select_deselect_msgs[floor, ud, 1, :], deselect)
 
 if __name__ == '__main__':
     a = CommonLedger(4)
@@ -183,5 +188,6 @@ if __name__ == '__main__':
     b.add_task_get(1, 0, time.time() * 1e6)
     b.add_task_done(1, 0, time.time() * 1e6)
     a.add_task_done(1, 0, time.time() * 1e6)
-
+    a.add_select(1, 0, stamp(), hash(1.1), stamp() + 1000000)
+    a.add_deselect(1, 0, stamp(), hash(1.1))
     c = a + b
