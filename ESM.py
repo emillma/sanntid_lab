@@ -1,32 +1,33 @@
 from time import clock
-
+#from elevator_link import get_stop_button, get_obstruction_switch
 
 #EVENTS
-def stop_button_pressed()
+def stop_button_pressed():
     # TODO
     return 0
 
-def elevator_at_floor()
+def elevator_at_floor():
     # TODO
     return 0
 
-def elevator_at_new_floor()
+def elevator_at_new_floor():
     # TODO
     return 0
 
-def stop_at_floor()
+def stop_at_floor():
     # TODO
     return 0
 
-def obstruction()
+def obstruction():
     # TODO
+
     return 0
 
-def go_to_new_floor()
+def go_to_new_floor():
     # TODO
     return 1
 
-def open_door()
+def open_door():
     # TODO
     return 0
 
@@ -46,7 +47,7 @@ class State(object):
         self.startTime = 0
 
     def Enter(self):
-        self.timer = 5
+        self.timer = 3
         self.startTime = int(clock())
 
     def Execute(self):
@@ -63,7 +64,7 @@ class BetweenFloorsNoDirection(State):
 
     def Enter(self):
         super(BetweenFloorsNoDirection, self).Enter()
-
+        print('BetweenFloorsNoDirection\n')
     def Execute(self):
         if not stop_button_pressed():
             self.elevator_state_machine.ToTransition("toTransit")
@@ -78,7 +79,7 @@ class Transit(State):
 
     def Enter(self):
         super(Transit, self).Enter()
-
+        print('Transit\n')
     def Execute(self):
 
         if not stop_button_pressed():
@@ -102,7 +103,7 @@ class AtFloorDoorClosed(State):
 
     def Enter(self):
         super(AtFloorDoorClosed, self).Enter()
-
+        print('AtFloorDoorClosed\n')
     def Execute(self):
 
         if not stop_button_pressed():
@@ -128,9 +129,9 @@ class AtFloorDoorOpen(State):
 
     def Enter(self):
         super(AtFloorDoorOpen, self).Enter()
-
+        print('AtFloorDoorOpen\n')
     def Execute(self):
-
+        #TODO wait 3 seconds
         if not obstruction():
             self.elevator_state_machine.ToTransition("toAtFloorDoorClosed")
         else:
@@ -181,46 +182,25 @@ class Elevator(object):
         self.elevator_state_machine.AddState("AtFloorDoorClosed", AtFloorDoorClosed(self.elevator_state_machine))
         self.elevator_state_machine.AddState("AtFloorDoorOpen", AtFloorDoorOpen(self.elevator_state_machine))
 
-        self.elevator_state_machine.AddTransition("toBetweenFloorsNoDirection", Transition("BetweenFloorsNoDirection")
-        self.elevator_state_machine.AddTransition("toTransit", Transition("Transit")
-        self.elevator_state_machine.AddTransition("toAtFloorDoorClosed", Transition("AtFloorDoorClosed")
-        self.elevator_state_machine.AddTransition("toAtFloorDoorOpen", Transition("AtFloorDoorOpen")
+        self.elevator_state_machine.AddTransition("toBetweenFloorsNoDirection", Transition("BetweenFloorsNoDirection"))
+        self.elevator_state_machine.AddTransition("toTransit", Transition("Transit"))
+        self.elevator_state_machine.AddTransition("toAtFloorDoorClosed", Transition("AtFloorDoorClosed"))
+        self.elevator_state_machine.AddTransition("toAtFloorDoorOpen", Transition("AtFloorDoorOpen"))
 
         self.elevator_state_machine.SetState("BetweenFloorsNoDirection")
 
     def SetState(self, stateName):
             self.curState = self.states[stateName]
 
-    def Transist
+    def Transist(self):
+            self.elevator_state_machine.Transit()
     def Execute(self):
         self.elevator_state_machine.Execute()
 
 
-#class State:
-    #def run(self):
-   #     assert 0
-  #  def next(self, input):
- #       assert 0
+def main():
 
-#class StateMachine:
-    #def __init__(self, initialState):
-      #  self.currentState = initialState
-     #   self.currentState.run()
+    elevator = Elevator.__init__()
 
 
-
-
-
-
-# EVENTS
-
-#from enum import Enum, unique
-
-
-#@unique
-##   BetweenFloorsNoDirection = 0
-  #  Transit = 1
-   # AtFloorDoorClosed = 2
-    #AtFloorDoorOpen = 3
-
-
+    #while 1:
