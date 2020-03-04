@@ -137,18 +137,31 @@ class UpState(State):
         self.next_state = None
 
     async def enter(self):
+        self.parent.elevator_link.set_stop_light(0)
+        self.parent.last_floor = self.parent.elevator_link.get_floor()
         while await self.parent.elevator_link.go_up():
             await asyncio.sleep(0.1)
 
     async def process(self):
-        current_floor = self.parent.elevator_link.get_floor()
-        for floor in range (current_floor, NUMBER_OF_FLOORS):
-            for order_type in range (0, 3):
-                if self.parent.elevator_link.get_order_button(floor, order_type):
-                    if order_type == 0 or order_type == 2:
-                        self.next_state = AtFloorDoorClosedState(self.parent)
-                    else:
-                        self.next_state = UpState(self.parent)
+        if self.parent.elevator_link.get_stop_button():
+            self.parent.elevator_link.set_stop_light(1)
+
+            if self.parent.elevator_link.get_floor():
+                self.next_state = AtFloorDoorOpenState(self.parent)
+            else:
+                self.next_state = BetweenFloorsNoDirectionState(self.parent)
+        else:
+            current_floor = self.parent.elevator_link.get_floor()
+            for floor in range(current_floor, NUMBER_OF_FLOORS):
+                while (await self.parent.elevator_link.get_floor())[1] != floor:
+                    await asyncio.sleep(0.1)
+
+                for order_type in range (0, 3):
+                    if self.parent.elevator_link.get_order_button(floor, order_type):
+                        if order_type == 0 or order_type == 2:
+                            self.next_state = AtFloorDoorClosedState(self.parent)
+                        else:
+                            self.next_state = UpState(self.parent)
 
         # TODO await ?
             #  while (await self.parent.elevator_link.get_floor())[1] != 3:
@@ -168,6 +181,7 @@ class DownState(State):
         self.next_state = None
 
     async def enter(self):
+        self.parent.last_floor = self.parent.elevator_link.get_floor()
         while await self.parent.elevator_link.go_down():
             await asyncio.sleep(0.1)
 
@@ -201,7 +215,7 @@ class AtFloorDoorClosedState(State):
 
     async def enter(self):
         self.parent.elevator_link.stop()
-        floor = self.parent.elevator_link.get_floor()[2]
+        #floor = self.parent.elevator_link.get_floor()[2]
         # self.parent.elevator_link.set_floor_indicator(floor)
         await asyncio.sleep(1)
 
@@ -213,13 +227,11 @@ class AtFloorDoorClosedState(State):
         else:
             floor = self.parent.elevator_link.get_floor()[2]
             for order_type in range (0,3):
-                if self.parent.elevator_link.get_order_button(floor, order_type)
+                if self.parent.elevator_link.get_order_button(floor, order_type):
                     self.next_state = AtFloorDoorOpenState(self.parent)
                 else:
-                    if go_to_new_floor():
-                        self.next_state = TransitState(self.parent)
-                    else:
-                        self.next_state = AtFloorDoorClosedState(self.parent)
+                    self.next_state = TransitState(self.parent)
+
 
     async def leave(self):
         assert self.next_state
@@ -254,6 +266,7 @@ class StateMachine:
     def __init__(self, elevator_link):
         self.elevator_link = elevator_link
         self.state = InitState(self)
+        self.last_floor = None
 
     async def run(self):
         while 1:
