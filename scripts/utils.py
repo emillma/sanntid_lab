@@ -17,9 +17,13 @@ def toclock(time, factor=1e6):
         return ' ' * 11 + str(None)
 
 
+def time_to_int(time):
+    return int(round(time * 1e6))
+
+
+def int_to_time(number):
+    return number / 1e6
+
+
 def now():
-    return int(round(time.time() * 1e6))
-
-
-def stamp():
-    return int(round(time.time() * 1e6))
+    return time_to_int(time.time())

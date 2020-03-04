@@ -88,6 +88,8 @@ class ElevatorLink:
         return await self._elev_tell('01ff0000')
 
     async def set_button_light(self, floor, button, value):
+        """0: up, 1: down, 2, cab
+        """
         return await self._elev_tell(f'02{button:02x}{floor:02x}{value:02x}')
 
     async def set_floor_indicator(self, floor):

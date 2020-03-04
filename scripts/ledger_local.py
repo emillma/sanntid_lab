@@ -9,9 +9,8 @@ https://github.com/numba/numba/issues/5100
 
 from __future__ import annotations
 import numpy as np
-import time
-from utils import toclock, stamp
-
+from utils import toclock, now
+import json
 
 def merge_in_deliver(deliver_done, new_timestamp=1e6):
     if not deliver_done[0]:
@@ -20,11 +19,11 @@ def merge_in_deliver(deliver_done, new_timestamp=1e6):
     elif deliver_done[0] < deliver_done[1]:
         if new_timestamp > deliver_done[1]:
             deliver_done[0] = new_timestamp
+        else:
+            deliver_done[0] = np.minimum(deliver_done[0], new_timestamp)
     # If the old message is valid
     else:
-        # If the new message also is valid
-        if new_timestamp > deliver_done[1]:
-            deliver_done[0] = np.minimum(deliver_done[0], new_timestamp)
+        deliver_done[0] = np.minimum(deliver_done[0], new_timestamp)
 
 
 def merge_in_done(get_done, new_timestamp=1e6):
@@ -33,29 +32,43 @@ def merge_in_done(get_done, new_timestamp=1e6):
 
 class LocalLedger:
 
-    def __init__(self, number_of_floors,
+    def __init__(self, number_of_floors = None,
                  deliver_done_msgs=None, stop_continue_msgs=None,
-                 block_deblock_msgs=None):
+                 block_deblock_msgs=None, json_data = None):
 
-        self.NUMBER_OF_FLOORS = number_of_floors
         # floor, get/done
-        if not np.any(deliver_done_msgs):
-            self.deliver_done_msgs = np.zeros((number_of_floors, 2),
+        if json_data:
+            data = json.loads(json_data.decode())
+            assert data['type'] == 'LocalLedger', TypeError
+            self.NUMBER_OF_FLOORS = data['NUMBER_OF_FLOORS']
+            self.deliver_done_msgs = np.array(data['deliver_done_msgs'],
                                               dtype=np.int64)
-        else:
-            self.deliver_done_msgs = deliver_done_msgs
+            self.stop_continue_msgs = np.array(data['stop_continue_msgs'],
+                                               dtype=np.int64)
+            self.block_deblock_msgs = np.array(data['block_deblock_msgs'],
+                                               dtype=np.int64)
 
-        # stop/continue
-        if not np.any(stop_continue_msgs):
-            self.stop_continue_msgs = np.zeros((2), dtype=np.int64)
         else:
-            self.stop_continue_msgs = stop_continue_msgs
+            assert number_of_floors
+            self.NUMBER_OF_FLOORS = number_of_floors
 
-        # block_deblock_msgs/block_deblock_msgs
-        if not np.any(stop_continue_msgs):
-            self.block_deblock_msgs = np.zeros((2), dtype=np.int64)
-        else:
-            self.block_deblock_msgs = block_deblock_msgs
+            if not np.any(deliver_done_msgs):
+                self.deliver_done_msgs = np.zeros((number_of_floors, 2),
+                                                  dtype=np.int64)
+            else:
+                self.deliver_done_msgs = deliver_done_msgs
+
+            # stop/continue
+            if not np.any(stop_continue_msgs):
+                self.stop_continue_msgs = np.zeros((2), dtype=np.int64)
+            else:
+                self.stop_continue_msgs = stop_continue_msgs
+
+            # block_deblock_msgs/block_deblock_msgs
+            if not np.any(stop_continue_msgs):
+                self.block_deblock_msgs = np.zeros((2), dtype=np.int64)
+            else:
+                self.block_deblock_msgs = block_deblock_msgs
 
     def __repr__(self):
         out = 'Deliver Done Messages\n'
@@ -77,6 +90,7 @@ class LocalLedger:
         out += 'Block Deblock Messages\n'
         out += f'Stop: {time_block}     Continue: {time_deblock}'
         return out
+
     def __str__(self):
         return self.__repr__()
 
@@ -112,6 +126,21 @@ class LocalLedger:
         return LocalLedger(self.NUMBER_OF_FLOORS, deliver_done_msgs,
                            stop_continue_msgs, block_deblock_msgs)
 
+    def __iadd__(self, other):
+        if isinstance(other, LocalLedger):
+            return self.__add__(other)
+        elif isinstance(other, bytes):
+            return self.__add__(LocalLedger(json_data=other))
+
+    def encode(self):
+        data = {}
+        data['type'] = 'LocalLedger'
+        data['NUMBER_OF_FLOORS'] = self.NUMBER_OF_FLOORS
+        data['deliver_done_msgs'] = self.deliver_done_msgs.tolist()
+        data['stop_continue_msgs'] = self.stop_continue_msgs.tolist()
+        data['block_deblock_msgs'] = self.block_deblock_msgs.tolist()
+        return json.dumps(data).encode()
+
     def add_task_deliver(self, floor, timestamp):
         # up: 0 down: 1
         merge_in_deliver(self.deliver_done_msgs[floor, :], timestamp)
@@ -136,13 +165,21 @@ class LocalLedger:
         self.stop_continue_msgs[1] = np.maximum(self.stop_continue_msgs[1],
                                                 timestamp)
 
+    def get_deliver(self):
+        return self.deliver_done_msgs[:, 0] > self.deliver_done_msgs[:, 1]
+
+    def get_stop(self):
+        return self.stop_continue_msgs[0] > self.stop_continue_msgs[1]
+
+    def get_block(self):
+        return self.stop_continue_msgs[0] > self.stop_continue_msgs[1]
 
 if __name__ == '__main__':
     a = LocalLedger(4)
     b = LocalLedger(4)
-    a.add_task_deliver(1, stamp())
-    b.add_task_deliver(1, stamp())
-    b.add_task_done(1, stamp())
-    a.add_task_done(1, stamp())
-    a.add_stop(stamp())
+    b.add_task_done(1, now())
+    a.add_task_done(1, now())
+    a.add_task_deliver(1, now() + 1)
+    b.add_task_deliver(1, now() + 1)
+    a.add_stop(now())
     c = a + b
