@@ -73,10 +73,10 @@ def merge_in_deselect(old, deselect_msg):
 
 class CommonLedger:
 
-    def __init__(self, number_of_floors=None, _get_done_msgs=None,
-                 _select_deselect_msgs=None, json_data=None):
+    def __init__(self, number_of_floors=None, json_data=None,
+                 _get_done_msgs=None, _select_deselect_msgs=None):
 
-        if json_data:
+        if json_data is not None:
             data = json.loads(json_data.decode())
             assert data['type'] == 'CommonLedger', TypeError
             self.NUMBER_OF_FLOORS = np.array(data['NUMBER_OF_FLOORS'],

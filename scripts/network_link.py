@@ -9,13 +9,19 @@ Created on Mon Feb 17 14:18:30 2020
 
 import udp as udp
 import asyncio
+import time
+import logging
 
 class NetworkLink:
 
-    def __init__(self, port, queue_size = 100):
+    def __init__(self, port, common_ledger, queue_size=100, update_rate=10):
         self.port = port
-        self.endpoint = None
         self.queue_size = queue_size
+        self.loop_time = 1/update_rate
+        self.common_ledger = common_ledger
+        self.id = hash(time.time())
+
+        self.endpoint = None
         self.out_addr = ('255.255.255.255', port)
 
     async def __aenter__(self):
@@ -36,14 +42,24 @@ class NetworkLink:
         data, addr = await self.endpoint.receive()
         return data, addr
 
-
-async def main():
-    async with NetworkLink(9000) as nl:
+    async def run(self):
         while 1:
-            await nl.broadcast('hall2'.encode())
-            while not nl.queie_is_empty():
-                print(await nl.pop())
-            await asyncio.sleep(1)
+            start_time = time.time()
+            while not self.endpoint.que_is_empty():
+                data = (await self.pop())[1]
+                id_bytes = data [:4]
+                json_data = data[4 :]
+                if int.from_bytes(id_bytes, 'big') != self.id:
+                    self.common_ledger += (await self.pop())[0]
 
-if __name__ == '__main__':
-    asyncio.run(main())
+            bytes_out = ((self.id).to_bytes(4, 'big')
+                         + self.common_ledger.encode())
+            await self.broadcast(bytes_out)
+
+
+            delta = time.time() - start_time
+            if self.loop_time < delta:
+                logging.warning('Not enough time to finish')
+
+            await asyncio.sleep(max(0, self.loop_time - delta))
+
