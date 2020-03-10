@@ -46,7 +46,7 @@ class InitState(State):
         await asyncio.sleep(1)
 
     async def process(self):
-        while not (await self.parent.elevator_link.get_floor()[1]):
+        while not (await self.parent.elevator_link.get_floor())[1]:
             await self.parent.elevator_link.go_down()
         self.next_state = AtFloorDoorClosedState(self.parent)
 
@@ -184,7 +184,7 @@ class AtFloorDoorClosedState(State):
         await asyncio.sleep(1)
 
     async def process(self):
-        if await self.parent.elevator_link.get_stop_button()[1] is not None:
+        if (await self.parent.elevator_link.get_stop_button())[1] is not None:
             await self.parent.elevator_link.set_stop_light(1)
             self.next_state = AtFloorDoorOpenState(self.parent)
             await asyncio.sleep(0.1)
@@ -219,11 +219,11 @@ class AtFloorDoorOpenState(State):
         await asyncio.sleep(1)
 
     async def process(self):
-        while not await self.parent.elevator_link.get_obstruction_switch()[1]:
+        while not (await self.parent.elevator_link.get_obstruction_switch())[1]:
             await asyncio.sleep(3)
             self.next_state = AtFloorDoorClosedState(self.parent)
             break
-        if await self.parent.elevator_link.get_obstruction_switch()[1]:
+        if (await self.parent.elevator_link.get_obstruction_switch())[1]:
             self.next_state = AtFloorDoorOpenState(self.parent)
 
     async def leave(self):
