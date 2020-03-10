@@ -74,7 +74,7 @@ def merge_in_deselect(old, deselect_msg):
 class CommonLedger:
 
     def __init__(self, number_of_floors=None, json_data=None,
-                 _get_done_msgs=None, _select_deselect_msgs=None):
+                 get_done_msgs=None, select_deselect_msgs=None):
 
         if json_data is not None:
             data = json.loads(json_data.decode())
@@ -91,18 +91,18 @@ class CommonLedger:
             self.NUMBER_OF_FLOORS = number_of_floors
 
             # floor, up/down, get/done
-            if not np.any(_get_done_msgs):
+            if not np.any(get_done_msgs):
                 self._get_done_msgs = np.zeros((number_of_floors, 2, 2),
                                               dtype=np.int64)
             else:
-                self._get_done_msgs = _get_done_msgs
+                self._get_done_msgs = get_done_msgs
 
             # floor, up/down, select/deselect, stamp/etd/id
-            if not np.any(_select_deselect_msgs):
+            if not np.any(select_deselect_msgs):
                 self._select_deselect_msgs = np.zeros(
                     (number_of_floors, 2, 2, 3), dtype=np.int64)
             else:
-                self._select_deselect_msgs = _select_deselect_msgs
+                self._select_deselect_msgs = select_deselect_msgs
 
     def __repr__(self):
         out = 'Get Done Messages\n'
@@ -170,8 +170,9 @@ class CommonLedger:
                     select_deselect_msgs[floor, direction, 0, :],
                     other._select_deselect_msgs[floor, direction, 0, :])
 
-        return CommonLedger(self.NUMBER_OF_FLOORS, get_done_msgs,
-                            select_deselect_msgs)
+        return CommonLedger(self.NUMBER_OF_FLOORS,
+                            get_done_msgs = get_done_msgs,
+                            select_deselect_msgs = select_deselect_msgs)
 
     def __iadd__(self, other):
         if isinstance(other, CommonLedger):
@@ -203,7 +204,8 @@ class CommonLedger:
 
     def add_deselect(self, floor, ud, timestamp, id):
         deselect = np.array([timestamp, id, 0], dtype=np.int64)
-        merge_in_deselect(self._select_deselect_msgs[floor, ud, :, :], deselect)
+        merge_in_deselect(self._select_deselect_msgs[floor, ud, :, :],
+                          deselect)
 
     def get_available_jobs(self):
         valid_stamp = (self._get_done_msgs[:, :, 0]
@@ -217,7 +219,7 @@ class CommonLedger:
 
         valid_id = self._select_deselect_msgs[:, :, 0, 1] == id
 
-        return valid_stamp * valid_id
+        return valid_stamp * valid_id * self.get_available_jobs()
 
 
 
