@@ -11,8 +11,26 @@ from __future__ import annotations
 import numpy as np
 from utils import toclock, now
 import json
+from typing import Optional
 
-def merge_in_deliver(deliver_done, new_timestamp=1e6):
+
+def merge_in_deliver(deliver_done: np.array, new_timestamp: int = 1e6):
+    """
+    Function used to merge in a new deliver task.
+
+    Parameters
+    ----------
+    deliver_done : TYPE
+        The old deliver done array. [deliver, done]
+    new_timestamp : TYPE, optional
+        The timestamp of the new merge task. The default is 1e6.
+
+    Returns
+    -------
+    None.
+
+    """
+
     if not deliver_done[0]:
         deliver_done[0] = new_timestamp
     # If the old message is invalid
@@ -26,15 +44,68 @@ def merge_in_deliver(deliver_done, new_timestamp=1e6):
         deliver_done[0] = np.minimum(deliver_done[0], new_timestamp)
 
 
-def merge_in_done(get_done, new_timestamp=1e6):
+def merge_in_done(get_done: np.array, new_timestamp: int = 1e6):
+    """
+    Function used to merge in anew done message.
+
+    Parameters
+    ----------
+    get_done : np.array
+        The old deliver done array. [deliver, done]
+
+    new_timestamp : int, optional
+        The timestamp of the done message. The default is 1e6.
+
+    Returns
+    -------
+    None.
+
+    """
+
     get_done[1] = np.maximum(get_done[1], new_timestamp)
 
 
 class LocalLedger:
+    """
+    Class used to keep track off all tasks that are elevator spesific.
 
-    def __init__(self, number_of_floors = None,
-                 deliver_done_msgs=None, stop_continue_msgs=None,
-                 block_deblock_msgs=None, json_data = None):
+    Works in a similar way as the Set data type where the most relevant task
+    is kept track of when using the '+' or "+=" operators.
+    """
+
+    def __init__(self, number_of_floors: int = None,
+                 deliver_done_msgs: Optional[np.array] = None,
+                 stop_continue_msgs: Optional[np.array] = None,
+                 block_deblock_msgs: Optional[np.array] = None,
+                 json_data: Optional[bytes] = None):
+        """
+        Initialise the ledger.
+        If json_data is not None, it will be decoded and used to initialize \
+        the object.
+
+        Parameters
+        ----------
+        number_of_floors : int, optional
+            Number of floors supported. The default is None.
+
+        deliver_done_msgs : Optional[np.array], optional
+            Array representing the deliver done messages. The default is None.
+
+        stop_continue_msgs : Optional[np.array], optional
+            Array representing the block deblock messages. The default is None.
+
+        block_deblock_msgs : Optional[np.array], optional
+            DESCRIPTION. The default is None.
+
+        json_data : Optional[bytes], optional
+            DESCRIPTION. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+
 
         # floor, get/done
         if json_data:
@@ -70,7 +141,14 @@ class LocalLedger:
             else:
                 self.block_deblock_msgs = block_deblock_msgs
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """
+        Returns
+        -------
+        str
+            Readable representation of the ledger.
+        """
+
         out = 'Deliver Done Messages\n'
         for floor in range(self.deliver_done_msgs.shape[0]):
             out += f'Floor {floor:2d}:    '
@@ -91,10 +169,31 @@ class LocalLedger:
         out += f'Stop: {time_block}     Continue: {time_deblock}'
         return out
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """
+        Returns
+        -------
+        str
+            Readable representation of the ledger.
+        """
+
         return self.__repr__()
 
-    def __eq__(self, other: LocalLedger):
+    def __eq__(self, other: LocalLedger) -> bool:
+        """
+        Test if two local ledgers are equal.
+
+        Parameters
+        ----------
+        other : LocalLedger
+
+        Returns
+        -------
+        bool
+            True if their data is the same, else False.
+
+        """
+
         assert isinstance(other, LocalLedger)
         return (np.array_equal(self.deliver_done_msgs,
                                other.deliver_done_msgs) and
@@ -104,7 +203,19 @@ class LocalLedger:
                                other.block_deblock_msgs)
                 )
 
-    def __add__(self, other):
+    def __add__(self, other: LocalLedger) -> LocalLedger:
+        """
+        Merge two local ledgers together, and return the newl created ledger.
+
+        Parameters
+        ----------
+        other : LocalLedger
+
+        Returns
+        -------
+        LocalLedger
+        """
+
         assert isinstance(other, LocalLedger)
         deliver_done_msgs = self.deliver_done_msgs.copy()
         stop_continue_msgs = self.stop_continue_msgs.copy()
@@ -126,7 +237,18 @@ class LocalLedger:
         return LocalLedger(self.NUMBER_OF_FLOORS, deliver_done_msgs,
                            stop_continue_msgs, block_deblock_msgs)
 
-    def __iadd__(self, other):
+    def __iadd__(self, other: LocalLedger) -> LocalLedger:
+        """
+        Parameters
+        ----------
+        other : LocalLedger
+            DESCRIPTION.
+
+        Returns
+        -------
+        LocalLedger
+        """
+
         if isinstance(other, bytes):
             other = LocalLedger(json_data=other)
         assert isinstance(other, LocalLedger)
@@ -147,7 +269,17 @@ class LocalLedger:
 
         return self
 
-    def encode(self):
+    def encode(self) -> bytes:
+        """
+        Translate the object to a json represenation in bytes.
+        Uset to send the object over a network connection.
+
+        Returns
+        -------
+        bytes
+            json representation of the object.
+        """
+
         data = {}
         data['type'] = 'LocalLedger'
         data['NUMBER_OF_FLOORS'] = self.NUMBER_OF_FLOORS

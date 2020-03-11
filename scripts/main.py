@@ -18,7 +18,11 @@ from os import system
 logging.basicConfig(level=logging.DEBUG)
 
 
-
+async def foo(l):
+    while 1:
+        system('clear')
+        print(l)
+        await asyncio.sleep(0.1)
 
 async def main():
     global common_ledger, nl, task_creator, local_ledger
@@ -28,7 +32,7 @@ async def main():
             NetworkLink(9000, common_ledger) as nl:
 
         task_creator = TaskCreator(el, local_ledger, common_ledger)
-        await asyncio.gather(nl.run(), task_creator.run())
+        await asyncio.gather(nl.run(), foo(local_ledger), task_creator.run())
 
 
 asyncio.run(main())

@@ -11,6 +11,7 @@ import udp as udp
 import asyncio
 import time
 import logging
+from typing import Optional
 
 class NetworkLink:
 
@@ -47,18 +48,16 @@ class NetworkLink:
             start_time = time.time()
             while not self.endpoint.que_is_empty():
                 data = (await self.pop())[0]
-                id_bytes = data [:24]
-                json_data = data[24 :]
+                id_bytes = data[:24]
+                json_data = data[24:]
                 if int.from_bytes(id_bytes, 'big') != self.id:
                     self.common_ledger += json_data
             bytes_out = ((self.id).to_bytes(24, 'big')
                          + self.common_ledger.encode())
             await self.broadcast(bytes_out)
 
-
             delta = time.time() - start_time
             if self.loop_time < delta:
                 logging.warning('Not enough time to finish')
 
             await asyncio.sleep(max(0, self.loop_time - delta))
-

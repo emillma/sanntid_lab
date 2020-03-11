@@ -22,16 +22,45 @@ from utils import now
 
 # common task
 class TaskCreator:
+    """
+    Object used to create get button and obstuction information \
+    from the elevator and create tasks.
+    """
 
     def __init__(self,
                  elevator_link: ElevatorLink,
                  local_ledger: LocalLedger,
                  common_ledger: CommonLedger):
+        """
+        Parameters
+        ----------
+        elevator_link : ElevatorLink
+
+        local_ledger : LocalLedger
+
+        common_ledger : CommonLedger
+
+
+        Returns
+        -------
+        None.
+
+        """
+
         self.elevator_link = elevator_link
         self.local_ledger = local_ledger
         self.common_ledger = common_ledger
 
     async def poll_buttons(self):
+        """
+        Poll all the buttons and add tasks to local_tasks and common_tasks.
+
+        Returns
+        -------
+        None.
+
+        """
+
         for floor, order in itertools.product(
                 range(self.elevator_link.floor_n), range(3)):
             # Order: Up: 0, Down: 1, Cab: 2
@@ -67,6 +96,15 @@ class TaskCreator:
                     self.local_ledger.add_deblock(now())
 
     async def run(self):
+        """
+        Run the task crator function.
+
+        Returns
+        -------
+        None.
+
+        """
+
         while 1:
             await self.poll_buttons()
             await asyncio.sleep(0.05)
