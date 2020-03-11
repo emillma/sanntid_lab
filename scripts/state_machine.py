@@ -223,39 +223,21 @@ class AtFloorDoorClosedState(State):
                 # TODO Do job: find direction, go to state up or down
 
                 # TODO Deliver tasks
-                self.parent.deliver_tasks = self.parent.ledger_local.get_deliver()
-                #
-                await asyncio.sleep(0.3)
-                if direction == UP:
-                    self.next_state = UpState(self.parent)
-                if direction == DOWN:
-                    self.next_state = DownState(self.parent)
+                self.parent.deliver_tasks = await self.parent.ledger_local.get_deliver()
+                if self.parent.last_direction is 0:  # 0 = up
+                    for floor in range(self.parent.current_floor, len(self.parent.deliver_tasks)):
+                        if await self.parent.deliver_tasks[floor]:
+                            self.next_state = UpState(self.parent)
+                elif self.parent.last_direction is 1:  # 1 = down
+                    for floor in range(self.parent.current_floor, -1):
+                        if await self.parent.deliver_tasks[floor]:
+                            self.next_state = DownState(self.parent)
+                else:
+                    self.next_state = AtFloorDoorClosedState(self.parent)
 
             except AssertionError as e:
                 await self.parent.elevator_link.set_stop_light(1)
                 self.next_state = AtFloorDoorOpenState(self.parent)
-
-
-
-        if await self.parent.ledger_local.get_stop():
-            await self.parent.elevator_link.set_stop_light(1)
-            self.next_state = AtFloorDoorOpenState(self.parent)
-            await asyncio.sleep(0.1)
-
-        else:
-            for order_type in range(0, 3):
-                if await self.parent.elevator_link.get_order_button(self.parent.last_floor, order_type) is not None:
-                    self.next_state = AtFloorDoorOpenState(self.parent)
-            self.parent.next_floor = orders.index(min(orders))
-            # TODO array orders with int timestamp or None
-            # for i in range(0, NUMBER_OF_FLOORS - 1):
-                # if (orders[i] is not None) and (orders[i] < orders[i + 1]):
-                    # self.parent.next_floor = i
-
-            if self.parent.next_floor < self.parent.last_floor:
-                self.next_state = DownState(self.parent)
-            else:
-                self.next_state = UpState(self.parent)
 
     async def leave(self):
         assert self.next_state
@@ -282,9 +264,9 @@ class AtFloorDoorOpenState(State):
                 self.next_state = AtFloorDoorClosedState(self.parent)
             except AssertionError as e:
                 if await self.parent.ledger_local.get_stop():
-                    self.parent.elevator_link.set_stop_light(1)
+                    await self.parent.elevator_link.set_stop_light(1)
                 if await self.parent.ledger_local.get_block():
-                    self.parent.elevator_link.set_obstruction_light(1)
+                    await self.parent.elevator_link.set_obstruction_light(1)
                 self.next_state = AtFloorDoorOpenState(self.parent)
 
     async def leave(self):
