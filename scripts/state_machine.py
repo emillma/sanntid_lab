@@ -1,6 +1,9 @@
 from elevator_link import ElevatorLink
 import asyncio
 import logging
+import time
+from ledger_local import LocalLedger
+
 logging.basicConfig(level=logging.DEBUG)
 
 # NUMBER_OF_FLOORS = self.parent.elevator_link.floor_n()
@@ -177,14 +180,31 @@ class AtFloorDoorClosedState(State):
         self.next_state = None
 
     async def enter(self):
-        while await self.parent.elevator_link.stop():
-            await asyncio.sleep(0.1)
-            self.parent.last_floor = self.parent.elevator_link.get_floor()[1]
-
+        await self.parent.elevator_link.stop()
+        await asyncio.sleep(0.1)
+        self.parent.last_floor = (self.parent.elevator_link.get_floor())[1]
+        await self.parent.elevator_link.set_floor_indicator(self.parent.last_floor)
         await asyncio.sleep(1)
 
     async def process(self):
-        if (await self.parent.elevator_link.get_stop_button())[1] is not None:
+        while not await self.parent.ledger_local.get_stop():
+            try:
+                assert not await self.parent.ledger_local.get_stop()
+                # TODO loop: take job, got job?
+                # TODO Do job: find direction, go to state up or down
+                await asyncio.sleep(0.3)
+                if direction == UP:
+                    self.next_state = UpState(self.parent)
+                if direction == DOWN:
+                    self.next_state = DownState(self.parent)
+
+            except AssertionError as e:
+                await self.parent.elevator_link.set_stop_light(1)
+                self.next_state = AtFloorDoorOpenState(self.parent)
+
+
+
+        if await self.parent.ledger_local.get_stop():
             await self.parent.elevator_link.set_stop_light(1)
             self.next_state = AtFloorDoorOpenState(self.parent)
             await asyncio.sleep(0.1)
@@ -219,12 +239,14 @@ class AtFloorDoorOpenState(State):
         await asyncio.sleep(1)
 
     async def process(self):
-        while not (await self.parent.elevator_link.get_obstruction_switch())[1]:
-            await asyncio.sleep(3)
-            self.next_state = AtFloorDoorClosedState(self.parent)
-            break
-        if (await self.parent.elevator_link.get_obstruction_switch())[1]:
-            self.next_state = AtFloorDoorOpenState(self.parent)
+        while not (await self.parent.ledger_local.get_stop() or await self.parent.ledger_local.get_block):
+            try:
+                for i_ in range(10):
+                    assert not (await self.parent.ledger_local.get_stop() or await self.parent.ledger_local.get_block())
+                    await asyncio.sleep(0.3)
+                self.next_state = AtFloorDoorClosedState(self.parent)
+            except AssertionError as e:
+                self.next_state = AtFloorDoorOpenState(self.parent)
 
     async def leave(self):
         await self.parent.elevator_link.set_door_light(0)
@@ -234,8 +256,9 @@ class AtFloorDoorOpenState(State):
 
 class StateMachine:
 
-    def __init__(self, elevator_link):
+    def __init__(self, elevator_link, local_ledger):
         self.elevator_link = elevator_link
+        self.local_ledger = local_ledger
         self.state = InitState(self)
         self.last_floor = None
         self.next_floor = None
