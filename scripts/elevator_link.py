@@ -121,7 +121,7 @@ class ElevatorLink:
         return (retval, data[1]) if not retval else (retval, None)
 
     async def get_obstruction_switch(self):
-        retval, data = await self._elev_get('08000000')
+        retval, data = await self._elev_get('09000000')
         return (retval, data[1]) if not retval else (retval, None)
 
     @property

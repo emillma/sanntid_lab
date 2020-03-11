@@ -173,11 +173,11 @@ class LocalLedger:
                                                 timestamp)
 
     def add_block(self, timestamp):
-        self.stop_continue_msgs[0] = np.maximum(self.stop_continue_msgs[0],
+        self.block_deblock_msgs[0] = np.maximum(self.stop_continue_msgs[0],
                                                 timestamp)
 
     def add_deblock(self, timestamp):
-        self.stop_continue_msgs[1] = np.maximum(self.stop_continue_msgs[1],
+        self.block_deblock_msgs[1] = np.maximum(self.stop_continue_msgs[1],
                                                 timestamp)
 
     def get_deliver(self):

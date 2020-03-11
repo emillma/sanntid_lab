@@ -46,13 +46,12 @@ class NetworkLink:
         while 1:
             start_time = time.time()
             while not self.endpoint.que_is_empty():
-                data = (await self.pop())[1]
-                id_bytes = data [:4]
-                json_data = data[4 :]
+                data = (await self.pop())[0]
+                id_bytes = data [:24]
+                json_data = data[24 :]
                 if int.from_bytes(id_bytes, 'big') != self.id:
-                    self.common_ledger += (await self.pop())[0]
-
-            bytes_out = ((self.id).to_bytes(4, 'big')
+                    self.common_ledger += json_data
+            bytes_out = ((self.id).to_bytes(24, 'big')
                          + self.common_ledger.encode())
             await self.broadcast(bytes_out)
 
