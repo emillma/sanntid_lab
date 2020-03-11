@@ -175,10 +175,28 @@ class CommonLedger:
                             select_deselect_msgs = select_deselect_msgs)
 
     def __iadd__(self, other):
-        if isinstance(other, CommonLedger):
-            return self.__add__(other)
-        elif isinstance('hello'.encode(), bytes):
-            return self.__add__(CommonLedger(json_data=other))
+        if isinstance(other, bytes):
+            other = CommonLedger(json_data=other)
+        assert isinstance(other, CommonLedger)
+        for floor in range(self.NUMBER_OF_FLOORS):
+            for direction in [0, 1]:  # [up, down]
+
+                merge_in_done(
+                    self._get_done_msgs[floor, direction],
+                    other._get_done_msgs[floor, direction, 1])
+
+                merge_in_get(
+                    self._get_done_msgs[floor, direction],
+                    other._get_done_msgs[floor, direction, 0])
+
+                merge_in_deselect(
+                    self._select_deselect_msgs[floor, direction, :, :],
+                    other._select_deselect_msgs[floor, direction, 1, :])
+
+                merge_in_select(
+                    self._select_deselect_msgs[floor, direction, 0, :],
+                    other._select_deselect_msgs[floor, direction, 0, :])
+        return self
 
     def encode(self):
         data = {}

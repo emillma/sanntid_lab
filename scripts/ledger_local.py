@@ -127,10 +127,25 @@ class LocalLedger:
                            stop_continue_msgs, block_deblock_msgs)
 
     def __iadd__(self, other):
-        if isinstance(other, LocalLedger):
-            return self.__add__(other)
-        elif isinstance(other, bytes):
-            return self.__add__(LocalLedger(json_data=other))
+        if isinstance(other, bytes):
+            other = LocalLedger(json_data=other)
+        assert isinstance(other, LocalLedger)
+
+        for floor in range(self.NUMBER_OF_FLOORS):
+
+            merge_in_deliver(self.deliver_done_msgs[floor, :],
+                             other.deliver_done_msgs[floor, 0])
+
+            merge_in_done(self.deliver_done_msgs[floor, :],
+                          other.deliver_done_msgs[floor, 1])
+
+        self.stop_continue_msgs = np.maximum(self.stop_continue_msgs,
+                                             other.stop_continue_msgs)
+
+        self.block_deblock_msgs = np.maximum(self.block_deblock_msgs,
+                                             other.block_deblock_msgs)
+
+        return self
 
     def encode(self):
         data = {}
