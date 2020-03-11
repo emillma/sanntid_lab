@@ -92,11 +92,28 @@ class UpState(State):
     async def enter(self):
         await self.parent.elevator_link.set_stop_light(0)
         self.parent.last_floor = (await self.parent.elevator_link.get_floor())[1]
-        print('Last floor: ', self.parent.last_floor)
-        while await self.parent.elevator_link.go_up():
-            await asyncio.sleep(0.1)
+        await self.parent.elevator_link.go_up()
+        await asyncio.sleep(0.1)
 
     async def process(self):
+        while not await self.parent.ledger_local.get_stop():  # While no stop signal
+            try:
+                for floor in range(self.parent.last_floor, NUMBER_OF_FLOORS):
+                    assert not await self.parent.ledger_local.get_stop()
+                    if (await self.parent.elevator_link.get_floor())[1] is floor:
+                        self.parent.elevator_link.set_floor_indicator(floor)
+                        if (await self.parent.deliver_tasks())[floor]:
+                            self.next_state = AtFloorDoorOpenState(self.parent)
+                    await asyncio.sleep(0.1)
+
+            except AssertionError as e:
+                self.parent.elevator_link.stop()
+                self.parent.elevator_link.set_stop_light(1)
+                if (await self.parent.elevator_link.get_floor())[1]:
+                    self.next_state = AtFloorDoorOpenState(self.parent)
+                else:
+                    self.next_state = BetweenFloorsNoDirectionState(self.parent)
+
         while await self.parent.elevator_link.get_stop_button()[1] is not 1:
             for floor in range(self.parent.last_floor, NUMBER_OF_FLOORS):
                 while (await self.parent.elevator_link.get_floor())[1] is None:
@@ -138,22 +155,33 @@ class DownState(State):
 
     async def enter(self):
         await self.parent.elevator_link.set_stop_light(0)
-        self.parent.last_floor = self.parent.elevator_link.get_floor()[1]
-        while await self.parent.elevator_link.go_down():
-            await asyncio.sleep(0.1)
+        self.parent.last_floor = (await self.parent.elevator_link.get_floor())[1]
+        await self.parent.elevator_link.go_down()
+        await asyncio.sleep(0.1)
 
     async def process(self):
-        if await self.parent.elevator_link.get_stop_button()[1]:  # Check for stop signal
-            self.parent.elevator_link.set_stop_light(1)
+        while not await self.parent.ledger_local.get_stop():  # While no stop signal
+            try:
+                for floor in range(self.parent.last_floor, -1):  # Den skal gå til -1 og ikke 0 right?
+                    assert not await self.parent.ledger_local.get_stop()
+                    if (await self.parent.elevator_link.get_floor())[1] is floor:
+                        self.parent.elevator_link.set_floor_indicator(floor)
+                        if (await self.parent.deliver_tasks())[floor]:
+                            self.next_state = AtFloorDoorOpenState(self.parent)
+                    await asyncio.sleep(0.1)
 
-            if await self.parent.elevator_link.get_floor()[1]:  # If elevator at floor
-                self.next_state = AtFloorDoorOpenState(self.parent)
-            else:
-                self.next_state = BetweenFloorsNoDirectionState(self.parent)
+            except AssertionError as e:
+                self.parent.elevator_link.stop()
+                self.parent.elevator_link.set_stop_light(1)
+                if (await self.parent.elevator_link.get_floor())[1]:
+                    self.next_state = AtFloorDoorOpenState(self.parent)
+                else:
+                    self.next_state = BetweenFloorsNoDirectionState(self.parent)
 
         # TODO something for when last floor is unknown
         else:
             for floor in range(self.parent.last_floor, -1):  # Iterate from current floor to the bottom
+
                 while (await self.parent.elevator_link.get_floor())[1] is None:  # Waits while elevator is not at floor
                     await asyncio.sleep(0.1)
                 self.parent.last_floor = self.parent.elevator_link.get_floor()[1]
@@ -190,8 +218,13 @@ class AtFloorDoorClosedState(State):
         while not await self.parent.ledger_local.get_stop():
             try:
                 assert not await self.parent.ledger_local.get_stop()
+                await self.parent.elevator_link.set_stop_light(0)
                 # TODO loop: take job, got job?
                 # TODO Do job: find direction, go to state up or down
+
+                # TODO Deliver tasks
+                self.parent.deliver_tasks = self.parent.ledger_local.get_deliver()
+                #
                 await asyncio.sleep(0.3)
                 if direction == UP:
                     self.next_state = UpState(self.parent)
@@ -243,9 +276,15 @@ class AtFloorDoorOpenState(State):
             try:
                 for i_ in range(10):
                     assert not (await self.parent.ledger_local.get_stop() or await self.parent.ledger_local.get_block())
+                    await self.parent.elevator_link.set_stop_light(0)
+                    await self.parent.elevator_link.set_obstruction_light(0)
                     await asyncio.sleep(0.3)
                 self.next_state = AtFloorDoorClosedState(self.parent)
             except AssertionError as e:
+                if await self.parent.ledger_local.get_stop():
+                    self.parent.elevator_link.set_stop_light(1)
+                if await self.parent.ledger_local.get_block():
+                    self.parent.elevator_link.set_obstruction_light(1)
                 self.next_state = AtFloorDoorOpenState(self.parent)
 
     async def leave(self):
@@ -263,6 +302,7 @@ class StateMachine:
         self.last_floor = None
         self.next_floor = None
         self.last_direction = None
+        self.deliver_tasks = []
 
     async def run(self):
         while 1:
