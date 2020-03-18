@@ -15,14 +15,20 @@ from typing import Optional
 
 class NetworkLink:
 
-    def __init__(self, port, common_ledger, queue_size=100, update_rate=10):
+    def __init__(self, port, common_ledger, queue_size=100, update_rate=1,
+                 sendto = None):
         self.port = port
         self.queue_size = queue_size
         self.loop_time = 1/update_rate
         self.common_ledger = common_ledger
         self.id = hash(time.time())
-
+        if sendto is None:
+            self.sendto = [port]
+        else:
+            self.sendto = sendto
+                
         self.endpoint = None
+        self.out_ip = '255.255.255.255'
         self.out_addr = ('255.255.255.255', port)
 
     async def __aenter__(self):
@@ -34,7 +40,9 @@ class NetworkLink:
         self.endpoint.close()
 
     async def broadcast(self, data):
-        self.endpoint.send(data, self.out_addr)
+        for port in self.sendto:
+            self.endpoint.send(data, (self.out_ip, port))
+            
 
     def queie_is_empty(self):
         return self.endpoint.que_is_empty()
