@@ -26,15 +26,22 @@ class NetworkLink:
             self.sendto = [port]
         else:
             self.sendto = sendto
-                
+
         self.endpoint = None
-        self.out_ip = '255.255.255.255'
-        self.out_addr = ('255.255.255.255', port)
+        # self.out_ip = '255.255.255.255'
+        self.out_ip = 'localhost'
+        self.out_addr = ('localhost', port)
 
     async def __aenter__(self):
-        self.endpoint = await udp.open_endpoint(
-            port=self.port, queue_size=self.queue_size)
-        return self
+        initial_port = self.port
+        while 1:
+            try:
+                assert self.port <= initial_port + 5
+                self.endpoint = await udp.open_endpoint(
+                    port=self.port, queue_size=self.queue_size)
+                return self
+            except OSError:
+                self.port += 1
 
     async def __aexit__(self, exc_type, exc, tb):
         self.endpoint.close()
@@ -42,7 +49,7 @@ class NetworkLink:
     async def broadcast(self, data):
         for port in self.sendto:
             self.endpoint.send(data, (self.out_ip, port))
-            
+
 
     def queie_is_empty(self):
         return self.endpoint.que_is_empty()
@@ -55,12 +62,12 @@ class NetworkLink:
         while 1:
             start_time = time.time()
             while not self.endpoint.que_is_empty():
-                data = (await self.pop())[0]
-                id_bytes = data[:24]
-                json_data = data[24:]
+                data, addr = await self.pop()
+                id_bytes = data[:8]
+                json_data = data[8:]
                 if int.from_bytes(id_bytes, 'big') != self.id:
                     self.common_ledger += json_data
-            bytes_out = ((self.id).to_bytes(24, 'big')
+            bytes_out = ((self.id).to_bytes(8, 'big')
                          + self.common_ledger.encode())
             await self.broadcast(bytes_out)
 

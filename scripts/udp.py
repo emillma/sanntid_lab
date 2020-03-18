@@ -53,7 +53,8 @@ class DatagramEndpointProtocol(asyncio.DatagramProtocol):
 
     def error_received(self, exc):
         msg = 'Endpoint received an error: {!r}'
-        logging.warning(msg.format(exc))
+        logging.debug(msg.format(exc))
+        # logging.warning(msg.format(exc))
 
 
 # Enpoint classes
