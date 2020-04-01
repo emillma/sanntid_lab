@@ -46,6 +46,7 @@ class InitState(State):
 
     async def enter(self):
         await self.parent.elevator_link.set_door_light(0)
+        await self.parent.clear_all_order_lights()
         await asyncio.sleep(1)
 
     async def process(self):
@@ -91,6 +92,7 @@ class UpState(State):
 
     async def enter(self):
         await self.parent.elevator_link.set_stop_light(0)
+        self.parent.last_direction = 0
         self.parent.last_floor = (await self.parent.elevator_link.get_floor())[1]
         await self.parent.elevator_link.go_up()
         await asyncio.sleep(0.1)
@@ -155,6 +157,7 @@ class DownState(State):
 
     async def enter(self):
         await self.parent.elevator_link.set_stop_light(0)
+        self.parent.last_direction = 1
         self.parent.last_floor = (await self.parent.elevator_link.get_floor())[1]
         await self.parent.elevator_link.go_down()
         await asyncio.sleep(0.1)
@@ -232,6 +235,11 @@ class AtFloorDoorClosedState(State):
                     for floor in range(self.parent.current_floor, -1):
                         if await self.parent.deliver_tasks[floor]:
                             self.next_state = DownState(self.parent)
+                elif self.parent.last_direction is None:
+                    for floor in range(0, len(self.parent.deliver_tasks)):
+                        if await self.parent.deliver_tasks[floor]:
+                            self.next_state = UpState(self.parent)
+
                 else:
                     self.next_state = AtFloorDoorClosedState(self.parent)
 
