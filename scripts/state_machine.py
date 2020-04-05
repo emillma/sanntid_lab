@@ -8,7 +8,6 @@ logging.basicConfig(level=logging.DEBUG)
 
 # NUMBER_OF_FLOORS = self.parent.elevator_link.floor_n()
 NUMBER_OF_FLOORS = 4
-
 orders = [2, None, 4, 8]
 
 

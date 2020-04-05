@@ -206,21 +206,29 @@ class CommonLedger:
         data['_select_deselect_msgs'] = self._select_deselect_msgs.tolist()
         return json.dumps(data).encode()
 
-    def add_task_get(self, floor, ud, timestamp):
+    def add_task_get(self, floor, ud, timestamp=None):
         # up: 0 down: 1
+        if timestamp is None:
+            timestamp = now()
         assert floor <= self.NUMBER_OF_FLOORS
         merge_in_get(self._get_done_msgs[floor, ud, :], timestamp)
 
-    def add_task_done(self, floor, ud, timestamp):
+    def add_task_done(self, floor, ud, timestamp=None):
         # up: 0 down: 1
+        if timestamp is None:
+            timestamp = now()
         assert floor <= self.NUMBER_OF_FLOORS
         merge_in_done(self._get_done_msgs[floor, ud, :], timestamp)
 
-    def add_select(self, floor, ud, timestamp, id, etd):
+    def add_select(self, floor, ud, id, etd, timestamp=None):
+        if timestamp is None:
+            timestamp = now()
         select = np.array([timestamp, id, etd], dtype=np.int64)
         merge_in_select(self._select_deselect_msgs[floor, ud, 0, :], select)
 
-    def add_deselect(self, floor, ud, timestamp, id):
+    def add_deselect(self, floor, ud, id, timestamp=None):
+        if timestamp is None:
+            timestamp = now()
         deselect = np.array([timestamp, id, 0], dtype=np.int64)
         merge_in_deselect(self._select_deselect_msgs[floor, ud, :, :],
                           deselect)

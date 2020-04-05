@@ -288,27 +288,39 @@ class LocalLedger:
         data['block_deblock_msgs'] = self.block_deblock_msgs.tolist()
         return json.dumps(data).encode()
 
-    def add_task_deliver(self, floor, timestamp):
+    def add_task_deliver(self, floor, timestamp=None):
         # up: 0 down: 1
+        if timestamp is None:
+            timestamp = now()
         merge_in_deliver(self.deliver_done_msgs[floor, :], timestamp)
 
-    def add_task_done(self, floor, timestamp):
+    def add_task_done(self, floor, timestamp=None):
         # up: 0 down: 1
+        if timestamp is None:
+            timestamp = now()
         merge_in_done(self.deliver_done_msgs[floor, :], timestamp)
 
-    def add_stop(self, timestamp):
+    def add_stop(self, timestamp=None):
+        if timestamp is None:
+            timestamp = now()
         self.stop_continue_msgs[0] = np.maximum(self.stop_continue_msgs[0],
                                                 timestamp)
 
-    def add_continue(self, timestamp):
+    def add_continue(self, timestamp=None):
+        if timestamp is None:
+            timestamp = now()
         self.stop_continue_msgs[1] = np.maximum(self.stop_continue_msgs[1],
                                                 timestamp)
 
-    def add_block(self, timestamp):
+    def add_block(self, timestamp=None):
+        if timestamp is None:
+            timestamp = now()
         self.block_deblock_msgs[0] = np.maximum(self.stop_continue_msgs[0],
                                                 timestamp)
 
-    def add_deblock(self, timestamp):
+    def add_deblock(self, timestamp=None):
+        if timestamp is None:
+            timestamp = now()
         self.block_deblock_msgs[1] = np.maximum(self.stop_continue_msgs[1],
                                                 timestamp)
 
@@ -319,7 +331,7 @@ class LocalLedger:
         return self.stop_continue_msgs[0] > self.stop_continue_msgs[1]
 
     def get_block(self):
-        return self.stop_continue_msgs[0] > self.stop_continue_msgs[1]
+        return self.block_deblock_msgs[0] > self.block_deblock_msgs[1]
 
 if __name__ == '__main__':
     a = LocalLedger(4)
