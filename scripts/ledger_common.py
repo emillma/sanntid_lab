@@ -13,7 +13,7 @@ import time
 from utils import toclock, now
 import json
 
-
+SELECT_TIMEOUT = 5e6
 def merge_in_get(get_done, new_timestamp):
     if not get_done[0]:
         get_done[0] = new_timestamp
@@ -32,7 +32,7 @@ def merge_in_done(get_done, new_timestamp):
     get_done[1] = np.maximum(get_done[1], new_timestamp)
 
 
-def merge_in_select(old, select_msg, limit=1e6, hyst = 1e5):
+def merge_in_select(old, select_msg, hyst=1e5):
     # If only one os valid
     if bool(old[0]) != bool(select_msg[0]):
         # A is default, so if it is b, swap
@@ -42,7 +42,7 @@ def merge_in_select(old, select_msg, limit=1e6, hyst = 1e5):
     # If both are valid
     elif old[0] and select_msg[0]:
         # If the timestamps are similar
-        if (np.abs(old[0] - select_msg[0]) < limit):
+        if (np.abs(old[0] - select_msg[0]) < SELECT_TIMEOUT):
             # If the ETD of a is larger than b, swap
             if old[1] - hyst > select_msg[1]:
                 old[:] = select_msg
@@ -50,25 +50,6 @@ def merge_in_select(old, select_msg, limit=1e6, hyst = 1e5):
             # If the timestamp of a is smaller
             if old[0] < select_msg[0]:
                 old[:] = select_msg
-    return old
-
-
-def merge_in_deselect(old, deselect_msg):
-
-    # If the old one is None, set new one
-    if old[1, 0] == 0:
-        old[1, :] = deselect_msg
-        return old
-
-    # if the id of the deselect is not the same as current select, return
-    elif deselect_msg[2] != old[0, 2]:
-        return old
-
-    else:
-        # If the timestamp of a is smaller
-        if old[1, 0] < deselect_msg[0]:
-            old[1, :] = deselect_msg
-        return old
 
 
 class CommonLedger:
@@ -83,7 +64,7 @@ class CommonLedger:
                                              dtype=np.int64)
             self._get_done_msgs = np.array(data['_get_done_msgs'],
                                           dtype=np.int64)
-            self._select_deselect_msgs = np.array(data['_select_deselect_msgs'],
+            self._select_msgs = np.array(data['_select_msgs'],
                                                  dtype=np.int64)
 
         else:
@@ -97,14 +78,16 @@ class CommonLedger:
             else:
                 self._get_done_msgs = get_done_msgs
 
-            # floor, up/down, select/deselect, stamp/etd/id
+            # floor, up/down, stamp/etd/id
             if not np.any(select_deselect_msgs):
-                self._select_deselect_msgs = np.zeros(
-                    (number_of_floors, 2, 2, 3), dtype=np.int64)
+                self._select_msgs = np.zeros(
+                    (number_of_floors, 2, 3), dtype=np.int64)
             else:
-                self._select_deselect_msgs = select_deselect_msgs
+                self._select_msgs = select_deselect_msgs
+        self.remove_old()
 
     def __repr__(self):
+        self.remove_old()
         out = 'Get Done Messages\n'
         for floor in range(self._get_done_msgs.shape[0]):
             for ud in [0, 1]:
@@ -121,19 +104,14 @@ class CommonLedger:
                 out += f'Floor {floor:2d}, '
                 out += 'UP:  ' if not ud else 'DOWN:'
                 out += '    '
-                select_stamp = toclock(self._select_deselect_msgs[
-                    floor, ud, 0, 0])
-                select_id = self._select_deselect_msgs[floor, ud, 0, 1]
-                select_etd = toclock(self._select_deselect_msgs[
-                    floor, ud, 0, 2])
-                deselect_stamp = toclock(self._select_deselect_msgs[
-                    floor, ud, 1, 0])
-                deselect_id = self._select_deselect_msgs[floor, ud, 1, 1]
+                select_stamp = toclock(self._select_msgs[
+                    floor, ud, 0])
+                select_id = self._select_msgs[floor, ud, 1]
+                select_etd = toclock(self._select_msgs[
+                    floor, ud, 2])
 
                 out += f'Select: {select_stamp}  {select_id:20d}  '
-                out += f'{select_etd}     '
-                out += f'Deselect: {deselect_stamp}  {deselect_id:20d}'
-                out += '\n'
+                out += f'{select_etd} \n'
 
         return out
 
@@ -143,14 +121,14 @@ class CommonLedger:
     def __eq__(self, other: CommonLedger):
         assert isinstance(other, CommonLedger)
         return (np.array_equal(self._get_done_msgs, other._get_done_msgs) and
-                np.array_equal(self._select_deselect_msgs,
-                               other._select_deselect_msgs)
+                np.array_equal(self._select_msgs,
+                               other._select_msgs)
                 )
 
     def __add__(self, other):
         assert isinstance(other, CommonLedger)
         get_done_msgs = self._get_done_msgs.copy()
-        select_deselect_msgs = self._select_deselect_msgs.copy()
+        select_deselect_msgs = self._select_msgs.copy()
         for floor in range(self.NUMBER_OF_FLOORS):
             for direction in [0, 1]:  # [up, down]
 
@@ -162,13 +140,9 @@ class CommonLedger:
                     get_done_msgs[floor, direction],
                     other._get_done_msgs[floor, direction, 0])
 
-                merge_in_deselect(
-                    select_deselect_msgs[floor, direction, :, :],
-                    other._select_deselect_msgs[floor, direction, 1, :])
-
                 merge_in_select(
-                    select_deselect_msgs[floor, direction, 0, :],
-                    other._select_deselect_msgs[floor, direction, 0, :])
+                    select_deselect_msgs[floor, direction, :],
+                    other._select_msgs[floor, direction, :])
 
         return CommonLedger(self.NUMBER_OF_FLOORS,
                             get_done_msgs = get_done_msgs,
@@ -189,21 +163,19 @@ class CommonLedger:
                     self._get_done_msgs[floor, direction],
                     other._get_done_msgs[floor, direction, 0])
 
-                merge_in_deselect(
-                    self._select_deselect_msgs[floor, direction, :, :],
-                    other._select_deselect_msgs[floor, direction, 1, :])
-
                 merge_in_select(
-                    self._select_deselect_msgs[floor, direction, 0, :],
-                    other._select_deselect_msgs[floor, direction, 0, :])
+                    self._select_msgs[floor, direction, :],
+                    other._select_msgs[floor, direction, :])
+        self.remove_old()
         return self
 
     def encode(self):
+        self.remove_old()
         data = {}
         data['type'] = 'CommonLedger'
         data['NUMBER_OF_FLOORS'] = self.NUMBER_OF_FLOORS
         data['_get_done_msgs'] = self._get_done_msgs.tolist()
-        data['_select_deselect_msgs'] = self._select_deselect_msgs.tolist()
+        data['_select_msgs'] = self._select_msgs.tolist()
         return json.dumps(data).encode()
 
     def add_task_get(self, floor, ud, timestamp=None):
@@ -220,42 +192,52 @@ class CommonLedger:
         assert floor <= self.NUMBER_OF_FLOORS
         merge_in_done(self._get_done_msgs[floor, ud, :], timestamp)
 
-    def add_select(self, floor, ud, id, etd, timestamp=None):
+    def add_select(self, floor, ud, etd, id,  timestamp=None):
         if timestamp is None:
             timestamp = now()
-        select = np.array([timestamp, id, etd], dtype=np.int64)
-        merge_in_select(self._select_deselect_msgs[floor, ud, 0, :], select)
+        select = np.array([timestamp, etd, id], dtype=np.int64)
+        merge_in_select(self._select_msgs[floor, ud, :], select)
 
-    def add_deselect(self, floor, ud, id, timestamp=None):
-        if timestamp is None:
-            timestamp = now()
-        deselect = np.array([timestamp, id, 0], dtype=np.int64)
-        merge_in_deselect(self._select_deselect_msgs[floor, ud, :, :],
-                          deselect)
+    def remove_old(self):
+        old = now() - self._select_msgs[:, :, 0] > SELECT_TIMEOUT
+        self._select_msgs[np.where(old)] = (0, 0, 0)
 
-    def get_available_jobs(self):
-        valid_stamp = (self._get_done_msgs[:, :, 0]
-                       > self._get_done_msgs[:, :, 1])
-        return valid_stamp
+    @property
+    def jobs(self):
+        has_task = (self._get_done_msgs[:, :, 0]
+                    > self._get_done_msgs[:, :, 1])
+        return np.where(has_task,
+                        self._get_done_msgs[:, :, 0],
+                        0)
+    @property
+    def available_jobs(self):
+        has_task = (self._get_done_msgs[:, :, 0]
+                    > self._get_done_msgs[:, :, 1])
+        self.remove_old()
+        not_selected = self._select_msgs[:, :, 0] == 0
+
+        return np.where(has_task * not_selected,
+                        self._get_done_msgs[:, :, 0],
+                        0)
 
     def get_selected_jobs(self, id):
+        has_task = (self._get_done_msgs[:, :, 0]
+                    > self._get_done_msgs[:, :, 1])
         # where the select timestamp is greater than deselect timestamp
-        valid_stamp = (self._select_deselect_msgs[:, :, 0, 0]
-                       > self._select_deselect_msgs[:, :, 1, 0])
+        self.remove_old()
+        valid_id = self._select_msgs[:, :, 2] == id
 
-        valid_id = self._select_deselect_msgs[:, :, 0, 1] == id
-
-        return valid_stamp * valid_id * self.get_available_jobs()
+        return np.where(has_task * valid_id,
+                        self._get_done_msgs[:, :, 0],
+                        0)
 
 
 
 if __name__ == '__main__':
     a = CommonLedger(4)
-    b = CommonLedger(4)
-    # a.add_task_get(1, 0, time.time() * 1e6)
-    b.add_task_done(1, 0, time.time() * 1e6 + 1e6)
-    b.add_task_get(1, 0, time.time() * 1e6 + 2e6)
-    a.add_task_done(1, 0, time.time() * 1e6)
-    a.add_select(1, 0, now(), hash(1.2), now() + 1000000)
-    a.add_deselect(1, 0, now(), hash(1.1))
-    c = a + b
+    id1 = 100
+    id2 = 200
+    a.add_task_get(1,0)
+    a.add_select(1, 0, now(), id1)
+    print(a.get_selected_jobs(id1))
+    # a.add_deselect(1, 0, now(), hash(1.1))

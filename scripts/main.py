@@ -13,8 +13,8 @@ from ledger_common import CommonLedger
 from ledger_local import LocalLedger
 from network_link import NetworkLink
 from task_creator import TaskCreator
-from state_machine2 import StateMachine
-
+from state_machine3 import StateMachine
+from light_handler import LightHandler
 logging.basicConfig(format='[%(asctime)s %(filename)s:%(lineno)d] %(message)s',
                     datefmt='%H:%M:%S',
                     level=logging.DEBUG)
@@ -40,8 +40,9 @@ async def main():
 
         sm = StateMachine(el, local_ledger, common_ledger)
         task_creator = TaskCreator(el, local_ledger, common_ledger)
+        light_handler = LightHandler(el, local_ledger, common_ledger)
         await asyncio.gather(nl.run(),
-                             task_creator.run(), sm.run())
+                             task_creator.run(), sm.run(), light_handler.run())
 
 
 asyncio.run(main())

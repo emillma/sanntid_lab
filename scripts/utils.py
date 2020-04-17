@@ -27,6 +27,8 @@ def toclock(time) -> str:
 
 
     if time:
+        print( datetime.datetime.fromtimestamp(time / 1e6).strftime(
+            "%H:%M:%S.%f"))
         return datetime.datetime.fromtimestamp(time / 1e6).strftime(
             "%H:%M:%S.%f")
     else:

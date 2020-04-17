@@ -324,13 +324,19 @@ class LocalLedger:
         self.block_deblock_msgs[1] = np.maximum(self.stop_continue_msgs[1],
                                                 timestamp)
 
-    def get_deliver(self):
-        return self.deliver_done_msgs[:, 0] > self.deliver_done_msgs[:, 1]
+    @property
+    def jobs(self):
+        return np.where((self.deliver_done_msgs[:, 0]
+                         > self.deliver_done_msgs[:, 1]).ravel(),
+                        self.deliver_done_msgs[:, 0],
+                        0)
 
-    def get_stop(self):
+    @property
+    def stop(self):
         return self.stop_continue_msgs[0] > self.stop_continue_msgs[1]
 
-    def get_block(self):
+    @property
+    def block(self):
         return self.block_deblock_msgs[0] > self.block_deblock_msgs[1]
 
 if __name__ == '__main__':
