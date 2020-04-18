@@ -33,8 +33,14 @@ def merge_in_done(get_done, new_timestamp):
 
 
 def merge_in_select(old, select_msg, hyst=1e5):
+    # if they have the same id
+    if old[2] == select_msg[2]:
+        # use the most recent
+        if select_msg[0] > old[0]:
+            old[:] = select_msg
+
     # If only one os valid
-    if bool(old[0]) != bool(select_msg[0]):
+    elif bool(old[0]) != bool(select_msg[0]):
         # A is default, so if it is b, swap
         if bool(select_msg[0]):
             old[:] = select_msg
@@ -108,10 +114,10 @@ class CommonLedger:
                     floor, ud, 0])
                 select_id = self._select_msgs[floor, ud, 1]
                 select_etd = toclock(self._select_msgs[
-                    floor, ud, 2])
+                    floor, ud, 1])
 
-                out += f'Select: {select_stamp}  {select_id:20d}  '
-                out += f'{select_etd} \n'
+                out += f'Select: {select_stamp}  {select_etd}  '
+                out += f'{select_id:20d} \n'
 
         return out
 
@@ -231,6 +237,9 @@ class CommonLedger:
                         self._get_done_msgs[:, :, 0],
                         0)
 
+    def remove_selection(self, floor, direction, id):
+        if id == self._select_msgs[floor, direction, 2]:
+            self._select_msgs[floor, direction, :] = (0, 0, 0)
 
 
 if __name__ == '__main__':

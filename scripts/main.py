@@ -22,14 +22,15 @@ logging.basicConfig(format='[%(asctime)s %(filename)s:%(lineno)d] %(message)s',
 
 async def printer(local, common):
     while 1:
-        # print(print(chr(27) + "[2J"))
-        print(local)
-        # print(common)
-        await asyncio.sleep(1)
+        return
+        print(print(chr(27) + "[2J"))
+        # print(local)
+        print(common)
+        await asyncio.sleep(0.5)
 
 
 async def main():
-    global common_ledger, nl, task_creator, local_ledger
+    global common_ledger, nl, task_creator, local_ledger, sm
     common_ledger = CommonLedger(4)
     local_ledger = LocalLedger(4)
     logging.debug('got here')
@@ -41,7 +42,7 @@ async def main():
         sm = StateMachine(el, local_ledger, common_ledger)
         task_creator = TaskCreator(el, local_ledger, common_ledger)
         light_handler = LightHandler(el, local_ledger, common_ledger)
-        await asyncio.gather(nl.run(),
+        await asyncio.gather(nl.run(), printer(local_ledger, common_ledger),
                              task_creator.run(), sm.run(), light_handler.run())
 
 
