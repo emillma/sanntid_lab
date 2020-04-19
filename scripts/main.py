@@ -13,7 +13,7 @@ from ledger_common import CommonLedger
 from ledger_local import LocalLedger
 from network_link import NetworkLink
 from task_creator import TaskCreator
-from state_machine3 import StateMachine
+from state_machine2 import StateMachine
 from light_handler import LightHandler
 logging.basicConfig(format='[%(asctime)s %(filename)s:%(lineno)d] %(message)s',
                     datefmt='%H:%M:%S',

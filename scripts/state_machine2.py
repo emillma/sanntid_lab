@@ -26,8 +26,16 @@ DOWN = 1
 DELIVER = 2
 IDLE = 2
 
-def time_to_floor(current, floor):
-    return now() + abs(current - floor) * time_to_int(FLOORTIME)
+def oldest(jobs):
+    tmp = tmp = np.where(jobs, jobs, 2**63-1)
+    argmin = np.unravel_index(np.argmin(tmp), jobs.shape)
+    return argmin if len(argmin) > 1 else argmin[0]
+
+def in_between(start, stop):
+    if stop >= start:
+        return range(start, stop)
+    else:
+        return range(start, stop, -1)
 
 
 class State:
@@ -59,18 +67,14 @@ class State:
                 + stop_cout * FLOORTIME)
 
     def update_select(self):
-        get_jobs = self.parent.common_ledger.get_selected_jobs(self.parent.id)
-        current_direction = self.parent.current_direction
-        other_direction = UP if current_direction == DOWN else DOWN
-
-        for floor in range(get_jobs.shape[0]):
-            # self.parent.common_ledger.remove_selection(floor, other_direction,
-            #                                            self.parent.id)
-            if get_jobs[floor, current_direction]:
+        get_jobs = self.jobs[:, (UP, DOWN)]
+        for floor in range(get_jobs.shape[1]):
+            if get_jobs[self.current_direction, floor]:
                 self.parent.common_ledger.add_select(
-                    floor, current_direction,
+                    floor, self.current_direction,
                     self.time_to_floor(floor),
                     self.parent.id)
+
 
     def clear_select(self):
         get_jobs = self.parent.common_ledger.get_selected_jobs(self.parent.id)
@@ -98,6 +102,12 @@ class State:
         tmp = np.where(self.jobs, self.jobs, 2**63-1)
         return np.unravel_index(np.argmin(tmp, axis = None), tmp.shape)
 
+    def switch_direction(self):
+        if self.current_direction == UP:
+            self.parent.current_direction = DOWN
+        else:
+            self.parent.current_direction = UP
+
 class Idle(State):
 
     async def enter(self):
@@ -108,63 +118,38 @@ class Idle(State):
 
     async def process(self):
         while True:
-            deliver_jobs = self.parent.local_ledger.jobs
-            if np.any(deliver_jobs):
-                tmp = np.where(deliver_jobs, deliver_jobs, 2**64-1)
-                oldest_deliver = np.argmin(tmp)
+            deliver_jobs = self.jobs[:, DELIVER]
 
+            if np.any(deliver_jobs):
+                oldest_deliver = oldest(deliver_jobs)
                 if oldest_deliver >= self.floor:
                     self.parent.current_direction = UP
                 else:
                     self.parent.current_direction = DOWN
 
-                self.parent.idle_floor = oldest_deliver
                 return AtFloor
 
-            get_jobs = self.parent.common_ledger.available_jobs
-            if np.any(get_jobs):
+            available_jobs = self.parent.common_ledger.available_jobs
+            if np.any(available_jobs):
 
-                tmp = np.where(get_jobs, get_jobs, 2**64-1)
-                argmin = np.unravel_index(np.argmin(tmp), get_jobs.shape)
-                oldest_get, old_direction = argmin
-                self.parent.idle_floor = oldest_get
-                if oldest_get > self.floor:
+                oldest_get_floor, oldest_get_direction = oldest(available_jobs)
+                if oldest_get_floor > self.floor:
                     self.parent.current_direction = UP
 
-                    for floor in range(self.floor, oldest_get):
-                        self.parent.common_ledger.add_select(
-                            floor, UP,
-                            self.time_to_floor(floor),
-                            self.parent.id)
-
-                    self.parent.common_ledger.add_select(
-                            oldest_get, old_direction,
-                            self.time_to_floor(oldest_get),
-                            self.parent.id)
-
-
-                elif oldest_get < self.floor:
+                elif oldest_get_floor < self.floor:
                     self.parent.current_direction = DOWN
 
-                    for floor in range(self.floor, oldest_get, -1):
 
-                        self.parent.common_ledger.add_select(
-                            floor, DOWN,
-                            self.time_to_floor(floor),
-                            self.parent.id)
-
+                for floor in in_between(self.floor, oldest_get_floor):
                     self.parent.common_ledger.add_select(
-                            oldest_get, old_direction,
-                            self.time_to_floor(oldest_get),
-                            self.parent.id)
+                        floor, self.current_direction,
+                        self.time_to_floor(floor),
+                        self.parent.id)
 
-
-                else:
-                     self.parent.current_direction = old_direction
-                     self.parent.common_ledger.add_select(
-                            oldest_get, old_direction,
-                            self.time_to_floor(oldest_get),
-                            self.parent.id)
+                self.parent.common_ledger.add_select(
+                        oldest_get_floor, oldest_get_direction,
+                        self.time_to_floor(oldest_get_floor),
+                        self.parent.id)
 
                 return AtFloor
 
@@ -209,53 +194,34 @@ class AtFloor(State):
 
     async def process(self):
 
-        if np.any(self.jobs[(self.current_direction, DELIVER), self.floor]):
+        if self.current_direction == UP:
+            if (not np.any(self.jobs[self.floor+1:, :])
+                and not self.jobs[self.floor, UP]):
+                self.switch_direction()
+
+        elif self.current_direction == DOWN:
+            if (not np.any(self.jobs[:self.floor, :])
+                and not self.jobs[self.floor, DOWN]):
+                self.switch_direction()
+
+        if self.open_door():
             return DoorOpen
 
-        deliver_jobs = self.parent.local_ledger.jobs
-        if np.any(deliver_jobs):
+        if not np.any(self.jobs):
+            return Idle
 
-            if (np.any(np.argwhere(deliver_jobs) > self.floor)
-                    and self.parent.current_direction == UP):
+        if self.current_direction == DOWN:
+            return Down
+        else:
+            return Up
 
-                return Up
-
-            elif (np.any(np.argwhere(deliver_jobs) < self.floor)
-                      and self.parent.current_direction == DOWN):
-
-                return Down
-
-        get_jobs = self.jobs[(UP, DOWN), :]
-
-        if np.any(get_jobs):
-            tmp = np.where(get_jobs, get_jobs, 2**64-1)
-            argmin = np.unravel_index(np.argmin(tmp), get_jobs.shape)
-            old_floor, old_direction = argmin
-
-            if old_floor == self.floor:
-                self.parent.current_direction = old_direction
-                return DoorOpen
-
-            elif self.parent.current_direction == UP:
-                return Up
-
-            elif self.parent.current_direction == DOWN:
-                return Down
-
-            # elif old_floor == self.floor:
-            #     return DoorOpen
-        return Idle
+    def open_door(self):
+        pick_up = self.parent.common_ledger.jobs[
+            self.floor, self.current_direction]
+        return self.jobs[self.floor, DELIVER] or pick_up
 
     async def leave(self):
         self.update_select()
-
-    def open_door(self):
-        deliver = self.parent.local_ledger.jobs[self.floor]
-
-        let_on = self.parent.common_ledger.jobs[
-                self.floor, self.parent.current_direction]
-
-        return deliver or let_on
 
 
 class DoorOpen(State):
@@ -278,11 +244,6 @@ class DoorOpen(State):
             self.parent.common_ledger.add_task_done(
                 self.floor, self.parent.current_direction)
 
-
-            if self.floor == self.parent.idle_floor:
-                self.parent.common_ledger.add_task_done(
-                    self.floor, self.parent.other_direction)
-
             await asyncio.sleep(1)
 
         return AtFloor
@@ -294,7 +255,7 @@ class DoorOpen(State):
     def keep_door_open(self):
         blocked = self.parent.local_ledger.block
 
-        deliver = self.parent.local_ledger.jobs[self.floor]
+        deliver = self.jobs[self.floor, DELIVER]
 
         get = self.parent.common_ledger.jobs[
                 self.floor, self.parent.current_direction]
@@ -366,7 +327,7 @@ class StateMachine:
     @property
     def jobs(self):
         return np.hstack((self.common_ledger.get_selected_jobs(self.id),
-                         self.local_ledger.jobs[:, None])).T
+                         self.local_ledger.jobs[:, None]))
 async def main():
 
     print('started')
