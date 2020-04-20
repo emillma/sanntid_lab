@@ -5,20 +5,26 @@ Created on Fri Apr 17 16:21:30 2020
 @author: user_id
 """
 from __future__ import annotations
-from ledger_common import CommonLedger
-from ledger_local import LocalLedger
-from elevator_link import ElevatorLink
+
 import numpy as np
 import asyncio
+
+from elevator_link import ElevatorLink
+from ledger_common import CommonLedger
+from ledger_local import LocalLedger
 
 SLEEPTIME = 0.02
 
 class LightHandler:
     """
     Object used to take care of turning on and turning off the lights.
+
+    Exept floor light, which is handled by the StateMachine
     """
-    def __init__(self, elevator_link: ElevatorLink, local_ledger: LocalLedger,
+    def __init__(self, elevator_link: ElevatorLink,
+                 local_ledger: LocalLedger,
                  common_ledger: CommonLedger):
+
         self.elevator_link = elevator_link
         self.local_ledger = local_ledger
         self.common_ledger = common_ledger

@@ -20,10 +20,9 @@ from ledger_local import LocalLedger
 from utils import now
 
 
-class TaskCreator:
+class ButtonHandler:
     """
-    Object used to create get button and obstuction information \
-    from the elevator and create tasks.
+    Object used to create tasks from buttons and obstruction.
     """
 
     def __init__(self,

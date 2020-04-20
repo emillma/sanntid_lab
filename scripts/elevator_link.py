@@ -5,14 +5,17 @@ Created on Mon Feb  3 12:07:36 2020
 @author: user_id
 """
 from __future__ import annotations
+from typing import Optional
+
 import asyncio
 import logging
-from typing import Optional
+
 
 class ElevatorLink:
     """
     Object used to ocmmunicate wit the elevator over TCP
     """
+
     def __init__(self, port=15657, floor_n=4):
         self.TCP_IP = 'localhost'
         self.TCP_PORT = port

@@ -7,10 +7,12 @@ Created on Mon Feb 24 16:15:09 2020
 """
 
 from __future__ import annotations
-import numpy as np
-from utils import toclock, now
-import json
 from typing import Optional
+
+import numpy as np
+import json
+
+from utils import toclock, now
 
 
 STAMP = 0
@@ -28,7 +30,7 @@ SELECT_TIMEOUT = 5e6
 
 def merge_in_get(get_done, new_timestamp):
     """
-    If the new get message is more relevant than the old one, the old one\
+    If the new get message is more relevant than the old one, the old one
     is replaced byt the new one.
 
     Parameters
@@ -59,7 +61,7 @@ def merge_in_get(get_done, new_timestamp):
 
 def merge_in_done(get_done, new_timestamp):
     """
-    If the new done message is more relevant than the old one, the old one\
+    If the new done message is more relevant than the old one, the old one
     is replaced byt the new one.
 
     Parameters
@@ -80,7 +82,7 @@ def merge_in_done(get_done, new_timestamp):
 
 def merge_in_select(old, select_msg, hyst=1e6):
     """
-    If the new select message is more relevant than the old one, the old one\
+    If the new select message is more relevant than the old one, the old one
     is replaced byt the new one.
 
     Parameters
@@ -357,7 +359,7 @@ class CommonLedger:
 
     def add_task_get(self, floor, ud, timestamp=None):
         """
-        Add a new get task, if it is less informative than the old one, \
+        Add a new get task, if it is less informative than the old one,
         nothing will happen.
         """
         # up: 0 down: 1
@@ -368,7 +370,7 @@ class CommonLedger:
 
     def add_task_done(self, floor, ud, timestamp=None):
         """
-        Add a new done message, if it is less informative than the old one, \
+        Add a new done message, if it is less informative than the old one,
         nothing will happen.
         """
         # up: 0 down: 1
@@ -379,7 +381,7 @@ class CommonLedger:
 
     def add_select(self, floor, ud, etd, id,  timestamp=None):
         """
-        Add a new select message, if it is less informative than the old one, \
+        Add a new select message, if it is less informative than the old one,
         nothing will happen.
         """
         if timestamp is None:
@@ -397,8 +399,8 @@ class CommonLedger:
     @property
     def jobs(self):
         """
-        Returns an array representation of all the get tasks. For every floor\
-        and direction it return 0 if there is no task or the timestamp of the\
+        Returns an array representation of all the get tasks. For every floor
+        and direction it return 0 if there is no task or the timestamp of the
         request if there is one.
         """
         has_task = (self._get_done_msgs[:, :, GET]
@@ -410,8 +412,8 @@ class CommonLedger:
     @property
     def available_jobs(self):
         """
-        Returns an array representation of all the get tasks that are not\
-        selected. For every floor and direction it return 0 if there is no\
+        Returns an array representation of all the get tasks that are not
+        selected. For every floor and direction it return 0 if there is no
         task or the timestamp of the request if there is one.
         """
         has_task = (self._get_done_msgs[:, :, GET]
@@ -425,8 +427,8 @@ class CommonLedger:
 
     def get_selected_jobs(self, id):
         """
-        Returns an array representation of all the get tasks that are selected\
-        bu the id. For every floor and direction it return 0 if there is no\
+        Returns an array representation of all the get tasks that are selected
+        bu the id. For every floor and direction it return 0 if there is no
         task or the timestamp of the request if there is one.
         """
         has_task = (self._get_done_msgs[:, :, GET]
@@ -439,11 +441,11 @@ class CommonLedger:
                         self._get_done_msgs[:, :, GET],
                         0)
 
-    def remove_selection(self, floor, direction, id):
+    def remove_selection(self, floor, direction, id_):
         """
         Removes all select messages matching id.
         """
-        if id == self._select_msgs[floor, direction, ID]:
+        if id_ == self._select_msgs[floor, direction, ID]:
             self._select_msgs[floor, direction, :] = (0, 0, 0)
 
 

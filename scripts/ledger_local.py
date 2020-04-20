@@ -6,10 +6,12 @@ Created on Mon Feb 24 16:15:09 2020
 """
 
 from __future__ import annotations
-import numpy as np
-from utils import toclock, now
-import json
 from typing import Optional
+
+import numpy as np
+import json
+
+from utils import toclock, now
 
 DELIVER = 0
 DONE = 1

@@ -6,13 +6,15 @@ Created on Mon Feb 17 14:18:30 2020
 @author: user_id
 """
 
+from typing import Optional
 
 import udp as udp
 import asyncio
-import time
-import logging
+import random
 from ledger_common import CommonLedger
-from typing import Optional
+
+SLEEPTIME = 0.02
+
 
 class NetworkLink:
     """
@@ -25,7 +27,8 @@ class NetworkLink:
                  common_ledger: CommonLedger,
                  queue_size: int = 100,
                  update_rate: int = 1,
-                 sendto: list or int = None):
+                 sendto: list or int = None,
+                 id: int = Optional(None)):
         """
         Parameters
         ----------
@@ -45,6 +48,10 @@ class NetworkLink:
             the same port, but on windows different ports are required.
             The default is None.
 
+        id : int, optional
+            Id of the network link, to avoid listening to itslef.
+            The default is None.
+
         Returns
         -------
         None.
@@ -56,7 +63,12 @@ class NetworkLink:
         self.queue_size = queue_size
         self.loop_time = 1/update_rate
         self.common_ledger = common_ledger
-        self.id = hash(time.time())
+
+        if id is None:
+            self.id = hash(random.random())
+        else:
+            self.id = id
+
         if sendto is None:
             self.sendto = [port]
         else:
@@ -119,19 +131,18 @@ class NetworkLink:
         """
 
         while 1:
-            start_time = time.time()
+
             while not self.endpoint.que_is_empty():
                 data, addr = await self.pop()
                 id_bytes = data[:8]
                 json_data = data[8:]
-                if int.from_bytes(id_bytes, 'big') != self.id:
+                elevator_id = int.from_bytes(id_bytes, 'big')
+                if elevator_id != self.id:
+                    # merge in data from other elevator
                     self.common_ledger += json_data
+
             bytes_out = ((self.id).to_bytes(8, 'big')
                          + self.common_ledger.encode())
             await self.broadcast(bytes_out)
 
-            delta = time.time() - start_time
-            if self.loop_time < delta:
-                logging.warning('Not enough time to finish')
-
-            await asyncio.sleep(max(0, self.loop_time - delta))
+            await asyncio.sleep(SLEEPTIME)

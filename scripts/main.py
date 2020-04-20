@@ -7,12 +7,16 @@ Created on Sun Feb 23 20:53:46 2020
 
 import asyncio
 import logging
+
 from ledger_common import CommonLedger
 from ledger_local import LocalLedger
+
 from elevator_link import ElevatorLink
 from network_link import NetworkLink
+
 from state_machine import StateMachine
-from task_creator import TaskCreator
+
+from task_creator import ButtonHandler
 from light_handler import LightHandler
 
 
@@ -38,9 +42,9 @@ async def elevator(elevator_number):
         state_machine = StateMachine(elevator_link,
                                      local_ledger,
                                      common_ledger,
-                                     id=1 + elevator_number)
+                                     id_=1 + elevator_number)
 
-        task_creator = TaskCreator(elevator_link,
+        task_creator = ButtonHandler(elevator_link,
                                    local_ledger,
                                    common_ledger)
 

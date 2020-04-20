@@ -13,12 +13,13 @@ import logging
 from ledger_local import LocalLedger
 from ledger_common import CommonLedger
 from itertools import product
-from utils import now, time_to_int
+from utils import now
 import numpy as np
 
 
 NUMBER_OF_FLOORS = 4
 SLEEPTIME = 0.02
+
 FLOORTIME = 4e6
 TRAVELTIME = 2e6
 UP = 0
@@ -390,12 +391,12 @@ class StateMachine:
     def __init__(self, elevator_link: ElevatorLink,
                  local_ledger: LocalLedger,
                  common_ledger: CommonLedger,
-                 id=None):
+                 id_=None):
 
-        if id is None:
+        if id_ is None:
             self.id = hash(now())
         else:
-            self.id = id
+            self.id = id_
 
         self.elevator_link = elevator_link
         self.local_ledger = local_ledger
