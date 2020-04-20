@@ -2,8 +2,6 @@
 """
 Created on Mon Feb 24 16:15:09 2020
 
-waiting for error fix in Numba
-https://github.com/numba/numba/issues/5100
 @author: user_id
 """
 
@@ -85,7 +83,8 @@ class LocalLedger:
                  deliver_done_msgs: Optional[np.array] = None,
                  stop_continue_msgs: Optional[np.array] = None,
                  block_deblock_msgs: Optional[np.array] = None,
-                 json_data: Optional[bytes] = None):
+                 json_data: Optional[bytes] = None) -> LocalLedger:
+
         """
         Initialise the ledger.
         If json_data is not None, it will be decoded and used to initialize \
@@ -106,12 +105,8 @@ class LocalLedger:
             DESCRIPTION. The default is None.
 
         json_data : Optional[bytes], optional
-            DESCRIPTION. The default is None.
-
-        Returns
-        -------
-        None.
-
+            A json representation of a LocalLedger object.
+            The default is None.
         """
 
 
@@ -189,7 +184,7 @@ class LocalLedger:
 
     def __eq__(self, other: LocalLedger) -> bool:
         """
-        Test if two local ledgers are equal.
+        Test if two LocalLedger are equal (==).
 
         Parameters
         ----------
@@ -213,7 +208,7 @@ class LocalLedger:
 
     def __add__(self, other: LocalLedger) -> LocalLedger:
         """
-        Merge two local ledgers together, and return the newl created ledger.
+        Merge two LocalLedger together, and return the new LocalLedger.
 
         Parameters
         ----------
@@ -247,6 +242,9 @@ class LocalLedger:
 
     def __iadd__(self, other: LocalLedger) -> LocalLedger:
         """
+        Overrides the plus equal operator (+=).
+        Parameters
+
         Parameters
         ----------
         other : LocalLedger
@@ -350,6 +348,9 @@ class LocalLedger:
                 > self.block_deblock_msgs[UNBLOCK])
 
 if __name__ == '__main__':
+    """
+    Run this too to see how some of the functions works.
+    """
     a = LocalLedger(4)
     b = LocalLedger(4)
     b.add_task_done(1, now())
@@ -358,3 +359,6 @@ if __name__ == '__main__':
     b.add_task_deliver(1, now() + 1)
     a.add_stop(now())
     c = a + b
+    d = LocalLedger(json_data = c.encode())
+    print(c)
+    print('D == A + B: ', c == a+b)

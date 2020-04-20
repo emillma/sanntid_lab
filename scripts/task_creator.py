@@ -3,7 +3,7 @@
 """
 Created on Wed Feb 19 16:55:19 2020
 
-@author: emil
+@author: user_id
 
 
 Husk a starte heissim før du kjører.

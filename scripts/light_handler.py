@@ -2,7 +2,7 @@
 """
 Created on Fri Apr 17 16:21:30 2020
 
-@author: emilm
+@author: user_id
 """
 from __future__ import annotations
 from ledger_common import CommonLedger

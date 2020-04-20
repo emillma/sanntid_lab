@@ -9,9 +9,9 @@ https://github.com/numba/numba/issues/5100
 
 from __future__ import annotations
 import numpy as np
-import time
 from utils import toclock, now
 import json
+from typing import Optional
 
 
 STAMP = 0
@@ -25,7 +25,26 @@ GET = 0
 DONE = 1
 
 SELECT_TIMEOUT = 5e6
+
+
 def merge_in_get(get_done, new_timestamp):
+    """
+    If the new get message is more relevant than the old one, the old one\
+    is replaced byt the new one.
+
+    Parameters
+    ----------
+    get_done : np.array[:]
+        old get / done data
+    new_timestamp : int
+        new get request timestamp
+
+    Returns
+    -------
+    None.
+
+    """
+
     if not get_done[GET]:
         get_done[GET] = new_timestamp
     # If the old message is invalid
@@ -40,10 +59,46 @@ def merge_in_get(get_done, new_timestamp):
 
 
 def merge_in_done(get_done, new_timestamp):
+    """
+    If the new done message is more relevant than the old one, the old one\
+    is replaced byt the new one.
+
+    Parameters
+    ----------
+    get_done : np.array[:]
+        old get / done data
+    new_timestamp : int
+        new done timestamp
+
+    Returns
+    -------
+    None.
+
+    """
+
     get_done[DONE] = np.maximum(get_done[DONE], new_timestamp)
 
 
 def merge_in_select(old, select_msg, hyst=1e6):
+    """
+    If the new select message is more relevant than the old one, the old one\
+    is replaced byt the new one.
+
+    Parameters
+    ----------
+    old : np.array[:]
+        old select message(timestamp, ETD (estimated time of delivery / id).
+    select_msg : TYPE
+        new select message (timestamp, ETD (estimated time of delivery / id).
+    hyst : TYPE, optional
+        DESCRIPTION. The default is 1e6.
+
+    Returns
+    -------
+    None.
+
+    """
+
     # if they have the same id
     if old[ID] == select_msg[ID]:
         # use the most recent
@@ -70,9 +125,48 @@ def merge_in_select(old, select_msg, hyst=1e6):
 
 
 class CommonLedger:
+    """
+    This class handles all the tasks that the elevators might have in common
+    AKA all the up and down requests. These requests are referred to as 'get'
+    jobs.
+    They are represented by a timestamp when the request was requested and a
+    timestamp when a request was compleated (done).
 
-    def __init__(self, number_of_floors=None, json_data=None,
-                 get_done_msgs=None, select_deselect_msgs=None):
+    It also tracks which elevator has said it is handling what request with
+    the select_msgs.
+    They are represented by a timestamp when the select message was last made,
+    an ETD (estimated time of delivery), and the ID of the elevator saying it
+    has taken the order.
+    """
+
+    def __init__(self,
+                 number_of_floors: int = 4,
+                 json_data: Optional[bytes] = None,
+                 get_done_msgs: Optional[np.array] = None,
+                 select_deselect_msgs: Optional[np.array] = None):
+        """
+        Initialises the commonledger.
+
+        It can be initialized as empty, from get and select messages or from
+        a set of bytes (used in network communication).
+
+        Parameters
+        ----------
+        number_of_floors : int, optional
+            Number of floors supported.
+
+        json_data : Optional[bytes], optional
+            A json representation of a LocalLedger object.
+            The default is None.
+
+        get_done_msgs : Optional[np.array], optional
+            An array representing the get and done messsages.
+            The default is None.
+
+        select_deselect_msgs : Optional[np.array], optional
+            An array representing the select messsages.
+            The default is None.
+        """
 
         if json_data is not None:
             data = json.loads(json_data.decode())
@@ -85,7 +179,6 @@ class CommonLedger:
                                                  dtype=np.int64)
 
         else:
-            assert number_of_floors
             self.NUMBER_OF_FLOORS = number_of_floors
 
             # floor, up/down, get/done
@@ -103,7 +196,18 @@ class CommonLedger:
                 self._select_msgs = select_deselect_msgs
         self.remove_old()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """
+        Funcion used to display the ledger
+        Exemple:
+
+        Returns
+        -------
+        str
+            Representation of the CommonLedger.
+
+        """
+
         self.remove_old()
         out = 'Get Done Messages\n'
         for floor in range(self._get_done_msgs.shape[0]):
@@ -132,17 +236,49 @@ class CommonLedger:
 
         return out
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """
+        Funcion used to display the ledger as a string. Same as __repr__.
+
+        Returns
+        -------
+        str
+            Representation of the CommonLedger.
+        """
         return self.__repr__()
 
-    def __eq__(self, other: CommonLedger):
+    def __eq__(self, other: CommonLedger) -> bool:
+        """
+        Test if two CommonLedger are equal (==).
+
+        Parameters
+        ----------
+        other : CommonLedger
+
+        Returns
+        -------
+        bool
+            True if their data is the same, else False.
+
+        """
         assert isinstance(other, CommonLedger)
         return (np.array_equal(self._get_done_msgs, other._get_done_msgs) and
                 np.array_equal(self._select_msgs,
                                other._select_msgs)
                 )
 
-    def __add__(self, other):
+    def __add__(self, other) -> CommonLedger:
+        """
+        Merge two CommonLedger together, and return the newl created ledger.
+
+        Parameters
+        ----------
+        other : CommonLedger
+
+        Returns
+        -------
+        CommonLedger
+        """
         assert isinstance(other, CommonLedger)
         get_done_msgs = self._get_done_msgs.copy()
         select_deselect_msgs = self._select_msgs.copy()
@@ -165,7 +301,18 @@ class CommonLedger:
                             get_done_msgs = get_done_msgs,
                             select_deselect_msgs = select_deselect_msgs)
 
-    def __iadd__(self, other):
+    def __iadd__(self, other: CommonLedger):
+        """
+        Overrides the plus equal operator (+=).
+
+        Parameters
+        ----------
+        other : CommonLedger
+
+        Returns
+        -------
+        CommonLedger
+        """
         if isinstance(other, bytes):
             other = CommonLedger(json_data=other)
         assert isinstance(other, CommonLedger)
@@ -187,6 +334,16 @@ class CommonLedger:
         return self
 
     def encode(self):
+        """
+        Translate the object to a json represenation in bytes.
+        Uset to send the object over a network connection.
+
+        Returns
+        -------
+        bytes
+            json representation of the object.
+        """
+
         self.remove_old()
         data = {}
         data['type'] = 'CommonLedger'
@@ -196,6 +353,10 @@ class CommonLedger:
         return json.dumps(data).encode()
 
     def add_task_get(self, floor, ud, timestamp=None):
+        """
+        Add a new get task, if it is less informative than the old one, \
+        nothing will happen.
+        """
         # up: 0 down: 1
         if timestamp is None:
             timestamp = now()
@@ -203,6 +364,10 @@ class CommonLedger:
         merge_in_get(self._get_done_msgs[floor, ud, :], timestamp)
 
     def add_task_done(self, floor, ud, timestamp=None):
+        """
+        Add a new done message, if it is less informative than the old one, \
+        nothing will happen.
+        """
         # up: 0 down: 1
         if timestamp is None:
             timestamp = now()
@@ -210,17 +375,29 @@ class CommonLedger:
         merge_in_done(self._get_done_msgs[floor, ud, :], timestamp)
 
     def add_select(self, floor, ud, etd, id,  timestamp=None):
+        """
+        Add a new select message, if it is less informative than the old one, \
+        nothing will happen.
+        """
         if timestamp is None:
             timestamp = now()
         select = np.array([timestamp, etd, id], dtype=np.int64)
         merge_in_select(self._select_msgs[floor, ud, :], select)
 
     def remove_old(self):
+        """
+        Removes all select messages that are older than SELECT_TIMEOUT
+        """
         old = now() - self._select_msgs[:, :, STAMP] > SELECT_TIMEOUT
         self._select_msgs[np.where(old)] = (0, 0, 0)
 
     @property
     def jobs(self):
+        """
+        Returns an array representation of all the get tasks. For every floor\
+        and direction it return 0 if there is no task or the timestamp of the\
+        request if there is one.
+        """
         has_task = (self._get_done_msgs[:, :, GET]
                     > self._get_done_msgs[:, :, DONE])
         return np.where(has_task,
@@ -228,6 +405,11 @@ class CommonLedger:
                         0)
     @property
     def available_jobs(self):
+        """
+        Returns an array representation of all the get tasks that are not\
+        selected. For every floor and direction it return 0 if there is no\
+        task or the timestamp of the request if there is one.
+        """
         has_task = (self._get_done_msgs[:, :, GET]
                     > self._get_done_msgs[:, :, DONE])
         self.remove_old()
@@ -238,6 +420,11 @@ class CommonLedger:
                         0)
 
     def get_selected_jobs(self, id):
+        """
+        Returns an array representation of all the get tasks that are selected\
+        bu the id. For every floor and direction it return 0 if there is no\
+        task or the timestamp of the request if there is one.
+        """
         has_task = (self._get_done_msgs[:, :, GET]
                     > self._get_done_msgs[:, :, DONE])
         # where the select timestamp is greater than deselect timestamp
@@ -249,15 +436,28 @@ class CommonLedger:
                         0)
 
     def remove_selection(self, floor, direction, id):
+        """
+        Removes all select messages matching id.
+        """
         if id == self._select_msgs[floor, direction, ID]:
             self._select_msgs[floor, direction, :] = (0, 0, 0)
 
 
 if __name__ == '__main__':
+    """
+    Run this too to see how some of the functions works.
+    """
     a = CommonLedger(4)
     id1 = 100
-    id2 = 200
     a.add_task_get(1,0)
-    a.add_select(1, 0, now(), id1)
-    print(a.get_selected_jobs(id1))
-    # a.add_deselect(1, 0, now(), hash(1.1))
+    a.add_select(1, 0, now() + 5e6, id1)
+
+    b = CommonLedger(4)
+    id2 = 200
+    b.add_task_get(2,1)
+    b.add_select(1, 0, now() + 2e6, id2)
+    c = a + b
+
+    d = CommonLedger(json_data = c.encode())
+    print(c)
+    print('D == A + B: ', c == a+b)
