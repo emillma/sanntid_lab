@@ -29,22 +29,23 @@ async def printer(local, common):
         await asyncio.sleep(0.5)
 
 
-async def main():
-    global common_ledger, nl, task_creator, local_ledger, sm
+async def elevator(number):
     common_ledger = CommonLedger(4)
     local_ledger = LocalLedger(4)
     logging.debug('got here')
 
-    async with ElevatorLink() as el, \
-        NetworkLink(9000, common_ledger,
-                    update_rate=10, sendto=[9000]) as nl:
+    async with ElevatorLink(port=15657 + number) as el, \
+        NetworkLink(9000 + number, common_ledger,
+                    update_rate=20, sendto=[9000, 9001]) as nl:
 
-        sm = StateMachine(el, local_ledger, common_ledger)
+        sm = StateMachine(el, local_ledger, common_ledger, id = 1+ number)
         task_creator = TaskCreator(el, local_ledger, common_ledger)
         light_handler = LightHandler(el, local_ledger, common_ledger)
         await asyncio.gather(nl.run(), printer(local_ledger, common_ledger),
                              task_creator.run(), sm.run(), light_handler.run())
 
+async def main():
+    await asyncio.gather(elevator(0), elevator(1))
 
 asyncio.run(main())
 

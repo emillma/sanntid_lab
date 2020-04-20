@@ -13,6 +13,14 @@ from utils import toclock, now
 import json
 from typing import Optional
 
+DELIVER = 0
+DONE = 1
+
+BLOCK = 0
+UNBLOCK = 1
+
+STOP = 0
+CONTINUE = 1
 
 def merge_in_deliver(deliver_done: np.array, new_timestamp: int = 1e6):
     """
@@ -31,20 +39,20 @@ def merge_in_deliver(deliver_done: np.array, new_timestamp: int = 1e6):
 
     """
 
-    if not deliver_done[0]:
-        deliver_done[0] = new_timestamp
+    if not deliver_done[DELIVER]:
+        deliver_done[DELIVER] = new_timestamp
     # If the old message is invalid
-    elif deliver_done[0] < deliver_done[1]:
-        if new_timestamp > deliver_done[1]:
-            deliver_done[0] = new_timestamp
+    elif deliver_done[DELIVER] < deliver_done[DONE]:
+        if new_timestamp > deliver_done[DONE]:
+            deliver_done[DELIVER] = new_timestamp
         else:
-            deliver_done[0] = np.minimum(deliver_done[0], new_timestamp)
+            deliver_done[DELIVER] = np.minimum(deliver_done[DELIVER], new_timestamp)
     # If the old message is valid
     else:
-        deliver_done[0] = np.minimum(deliver_done[0], new_timestamp)
+        deliver_done[DELIVER] = np.minimum(deliver_done[DELIVER], new_timestamp)
 
 
-def merge_in_done(get_done: np.array, new_timestamp: int = 1e6):
+def merge_in_done(deliver_done: np.array, new_timestamp: int = 1e6):
     """
     Function used to merge in anew done message.
 
@@ -62,7 +70,7 @@ def merge_in_done(get_done: np.array, new_timestamp: int = 1e6):
 
     """
 
-    get_done[1] = np.maximum(get_done[1], new_timestamp)
+    deliver_done[DONE] = np.maximum(deliver_done[DELIVER], new_timestamp)
 
 
 class LocalLedger:
@@ -152,19 +160,19 @@ class LocalLedger:
         out = 'Deliver Done Messages\n'
         for floor in range(self.deliver_done_msgs.shape[0]):
             out += f'Floor {floor:2d}:    '
-            time_get = toclock(self.deliver_done_msgs[floor, 0])
-            time_done = toclock(self.deliver_done_msgs[floor, 1])
+            time_get = toclock(self.deliver_done_msgs[floor, DELIVER])
+            time_done = toclock(self.deliver_done_msgs[floor, DONE])
             out += f'DELIVER: {time_get}    DONE: {time_done}'
             out += '\n'
         out += '\n'
 
-        time_stop = toclock(self.stop_continue_msgs[0])
-        time_continue = toclock(self.stop_continue_msgs[1])
+        time_stop = toclock(self.stop_continue_msgs[DELIVER])
+        time_continue = toclock(self.stop_continue_msgs[DONE])
         out += 'Stop Continue Messages\n'
         out += f'Stop: {time_stop}     Continue: {time_continue}\n\n'
 
-        time_block = toclock(self.block_deblock_msgs[0])
-        time_deblock = toclock(self.block_deblock_msgs[1])
+        time_block = toclock(self.block_deblock_msgs[DELIVER])
+        time_deblock = toclock(self.block_deblock_msgs[DONE])
         out += 'Block Deblock Messages\n'
         out += f'Stop: {time_block}     Continue: {time_deblock}'
         return out
@@ -223,10 +231,10 @@ class LocalLedger:
         for floor in range(self.NUMBER_OF_FLOORS):
 
             merge_in_deliver(deliver_done_msgs[floor, :],
-                             other.deliver_done_msgs[floor, 0])
+                             other.deliver_done_msgs[floor, DELIVER])
 
             merge_in_done(deliver_done_msgs[floor, :],
-                          other.deliver_done_msgs[floor, 1])
+                          other.deliver_done_msgs[floor, DONE])
 
         stop_continue_msgs = np.maximum(stop_continue_msgs,
                                         other.stop_continue_msgs)
@@ -256,10 +264,10 @@ class LocalLedger:
         for floor in range(self.NUMBER_OF_FLOORS):
 
             merge_in_deliver(self.deliver_done_msgs[floor, :],
-                             other.deliver_done_msgs[floor, 0])
+                             other.deliver_done_msgs[floor, DELIVER])
 
             merge_in_done(self.deliver_done_msgs[floor, :],
-                          other.deliver_done_msgs[floor, 1])
+                          other.deliver_done_msgs[floor, DONE])
 
         self.stop_continue_msgs = np.maximum(self.stop_continue_msgs,
                                              other.stop_continue_msgs)
@@ -303,41 +311,43 @@ class LocalLedger:
     def add_stop(self, timestamp=None):
         if timestamp is None:
             timestamp = now()
-        self.stop_continue_msgs[0] = np.maximum(self.stop_continue_msgs[0],
-                                                timestamp)
+        self.stop_continue_msgs[STOP] = np.maximum(
+            self.stop_continue_msgs[STOP], timestamp)
 
     def add_continue(self, timestamp=None):
         if timestamp is None:
             timestamp = now()
-        self.stop_continue_msgs[1] = np.maximum(self.stop_continue_msgs[1],
-                                                timestamp)
+        self.stop_continue_msgs[CONTINUE] = np.maximum(
+            self.stop_continue_msgs[CONTINUE], timestamp)
 
     def add_block(self, timestamp=None):
         if timestamp is None:
             timestamp = now()
-        self.block_deblock_msgs[0] = np.maximum(self.stop_continue_msgs[0],
-                                                timestamp)
+        self.block_deblock_msgs[BLOCK] = np.maximum(
+            self.stop_continue_msgs[UNBLOCK], timestamp)
 
     def add_deblock(self, timestamp=None):
         if timestamp is None:
             timestamp = now()
-        self.block_deblock_msgs[1] = np.maximum(self.stop_continue_msgs[1],
-                                                timestamp)
+        self.block_deblock_msgs[UNBLOCK] = np.maximum(
+            self.stop_continue_msgs[UNBLOCK], timestamp)
 
     @property
     def jobs(self):
-        return np.where((self.deliver_done_msgs[:, 0]
-                         > self.deliver_done_msgs[:, 1]).ravel(),
-                        self.deliver_done_msgs[:, 0],
+        return np.where((self.deliver_done_msgs[:, DELIVER]
+                         > self.deliver_done_msgs[:, DONE]).ravel(),
+                        self.deliver_done_msgs[:, DELIVER],
                         0)
 
     @property
     def stop(self):
-        return self.stop_continue_msgs[0] > self.stop_continue_msgs[1]
+        return (self.stop_continue_msgs[STOP]
+                > self.stop_continue_msgs[CONTINUE])
 
     @property
     def block(self):
-        return self.block_deblock_msgs[0] > self.block_deblock_msgs[1]
+        return (self.block_deblock_msgs[BLOCK]
+                > self.block_deblock_msgs[UNBLOCK])
 
 if __name__ == '__main__':
     a = LocalLedger(4)

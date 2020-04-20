@@ -26,8 +26,21 @@ DOWN = 1
 DELIVER = 2
 IDLE = 2
 
+def sort_best_jobs(jobs, current_floor):
+    FLOOR = 0
+    DIR = 1
+    tmp = np.where(jobs, jobs, 2**63-1)
+    sort = np.array(np.unravel_index(np.argsort(tmp, axis=None), jobs.shape)).T
+
+    removed_invalid =  [i for i in sort if jobs[i[FLOOR], i[DIR]]]
+
+
+    key = lambda job: (abs(current_floor - job[FLOOR]),
+                       jobs[job[FLOOR], job[DIR]])
+    return sorted(removed_invalid, key = key)
+
 def oldest(jobs):
-    tmp = tmp = np.where(jobs, jobs, 2**63-1)
+    tmp = np.where(jobs, jobs, 2**63-1)
     argmin = np.unravel_index(np.argmin(tmp), jobs.shape)
     return argmin if len(argmin) > 1 else argmin[0]
 
@@ -129,32 +142,27 @@ class Idle(State):
 
                 return AtFloor
 
-            available_jobs = self.parent.common_ledger.available_jobs
-            if np.any(available_jobs):
-
-                oldest_get_floor, oldest_get_direction = oldest(available_jobs)
-                if oldest_get_floor > self.floor:
-                    self.parent.current_direction = UP
-
-                elif oldest_get_floor < self.floor:
-                    self.parent.current_direction = DOWN
-
-
-                for floor in in_between(self.floor, oldest_get_floor):
-                    self.parent.common_ledger.add_select(
+            jobs = self.parent.common_ledger.jobs
+            for floor, direction in sort_best_jobs(jobs, self.floor):
+                self.parent.common_ledger.add_select(
                         floor, self.current_direction,
                         self.time_to_floor(floor),
                         self.parent.id)
 
-                self.parent.common_ledger.add_select(
-                        oldest_get_floor, oldest_get_direction,
-                        self.time_to_floor(oldest_get_floor),
-                        self.parent.id)
+                if self.jobs[floor, direction]:
+                    if floor > self.floor:
+                        self.parent.current_direction = UP
+
+                    elif floor < self.floor:
+                        self.parent.current_direction = DOWN
+
 
                 return AtFloor
 
             await asyncio.sleep(SLEEPTIME)
 
+    async def leave(self):
+        await asyncio.sleep(0.1)
 
 class Init(State):
 
@@ -204,7 +212,7 @@ class AtFloor(State):
                 and not self.jobs[self.floor, DOWN]):
                 self.switch_direction()
 
-        if self.open_door():
+        if await self.open_door():
             return DoorOpen
 
         if not np.any(self.jobs):
@@ -215,7 +223,8 @@ class AtFloor(State):
         else:
             return Up
 
-    def open_door(self):
+    async def open_door(self):
+        await asyncio.sleep(0.2)
         pick_up = self.parent.common_ledger.jobs[
             self.floor, self.current_direction]
         return self.jobs[self.floor, DELIVER] or pick_up
@@ -230,21 +239,20 @@ class DoorOpen(State):
         pass
 
     async def enter(self):
-        await asyncio.sleep(0.5)
-        await self.parent.elevator_link.set_door_light(1)
         retval, floor = await self.parent.elevator_link.get_floor()
         self.floor = floor
 
     async def process(self):
-
-        while self.keep_door_open():
-            await asyncio.sleep(1)
+        while True:
+            await self.parent.elevator_link.set_door_light(1)
             self.parent.local_ledger.add_task_done(self.floor)
 
             self.parent.common_ledger.add_task_done(
                 self.floor, self.parent.current_direction)
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
+            if not self.keep_door_open():
+                break
 
         return AtFloor
 
@@ -300,8 +308,12 @@ class Up(Travel):
 
 class StateMachine:
     def __init__(self, elevator_link: ElevatorLink, local_ledger: LocalLedger,
-                 common_ledger: CommonLedger):
-        self.id = hash(now())
+                 common_ledger: CommonLedger, id = None):
+        if id is None:
+            self.id = hash(now())
+        else:
+            self.id = id
+
         self.elevator_link = elevator_link
         self.local_ledger = local_ledger
         self.common_ledger = common_ledger
@@ -310,13 +322,13 @@ class StateMachine:
         self.idle_floor = None
     async def run(self):
         while 1:
-            logging.info(f'Entering \t\t {self.state}')
+            logging.info(f'Entering \t\t {type(self.state)}, {self.id}')
             await self.state.enter()
 
-            logging.info(f'Processing \t {self.state}')
+            logging.info(f'Processing \t {type(self.state)}, {self.id}')
             state_generator = await self.state.process()
 
-            logging.info(f'Leaving \t\t {self.state}\n')
+            logging.info(f'Leaving \t\t {type(self.state)}, {self.id}\n')
             await self.state.leave()
             self.state = state_generator(self)
 

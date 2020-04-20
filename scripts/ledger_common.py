@@ -43,7 +43,7 @@ def merge_in_done(get_done, new_timestamp):
     get_done[DONE] = np.maximum(get_done[DONE], new_timestamp)
 
 
-def merge_in_select(old, select_msg, hyst=1e5):
+def merge_in_select(old, select_msg, hyst=1e6):
     # if they have the same id
     if old[ID] == select_msg[ID]:
         # use the most recent
