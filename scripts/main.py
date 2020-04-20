@@ -5,15 +5,14 @@ Created on Sun Feb 23 20:53:46 2020
 @author: user_id
 """
 
-from elevator_link import ElevatorLink
 import asyncio
 import logging
-from utils import now
 from ledger_common import CommonLedger
 from ledger_local import LocalLedger
+from elevator_link import ElevatorLink
 from network_link import NetworkLink
-from task_creator import TaskCreator
 from state_machine import StateMachine
+from task_creator import TaskCreator
 from light_handler import LightHandler
 
 
@@ -22,33 +21,44 @@ logging.basicConfig(format='[%(asctime)s %(filename)s:%(lineno)d] %(message)s',
                     level=logging.INFO)
 
 
-async def printer(local, common):
-    while 1:
-        return
-        print(print(chr(27) + "[2J"))
-        # print(local)
-        print(common)
-        await asyncio.sleep(0.5)
+async def elevator(elevator_number):
+    common_ledger = CommonLedger(number_of_floors=4)
+    local_ledger = LocalLedger(number_of_floors=4)
 
+    network_kwargs = {'port': 9000 + elevator_number,
+                      'common_ledger': common_ledger,
+                      'update_rate': 20,
+                      'sendto': [9000, 9001, 9002]}
 
-async def elevator(number):
-    common_ledger = CommonLedger(4)
-    local_ledger = LocalLedger(4)
-    logging.debug('got here')
+    # open connection with elevator ant udp ports
+    async with \
+            ElevatorLink(port=15657 + elevator_number) as elevator_link, \
+            NetworkLink(**network_kwargs) as network_link:
 
-    async with ElevatorLink(port=15657 + number) as el, \
-        NetworkLink(9000 + number, common_ledger,
-                    update_rate=20, sendto=[9000, 9001]) as nl:
+        state_machine = StateMachine(elevator_link,
+                                     local_ledger,
+                                     common_ledger,
+                                     id=1 + elevator_number)
 
-        sm = StateMachine(el, local_ledger, common_ledger, id = 1+ number)
-        task_creator = TaskCreator(el, local_ledger, common_ledger)
-        light_handler = LightHandler(el, local_ledger, common_ledger)
-        await asyncio.gather(nl.run(), printer(local_ledger, common_ledger),
-                             task_creator.run(), sm.run(), light_handler.run())
+        task_creator = TaskCreator(elevator_link,
+                                   local_ledger,
+                                   common_ledger)
+
+        light_handler = LightHandler(elevator_link,
+                                     local_ledger,
+                                     common_ledger)
+
+        # start all the differnet coroutines belonging to one elevator
+        await asyncio.gather(network_link.run(),
+                             task_creator.run(),
+                             state_machine.run(),
+                             light_handler.run())
+
 
 async def main():
-    await asyncio.gather(elevator(0), elevator(1))
+    # start multiple elevators
+    await asyncio.gather(elevator(0),
+                         elevator(1),
+                         elevator(2))
 
 asyncio.run(main())
-
-

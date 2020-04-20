@@ -74,8 +74,15 @@ def merge_in_done(deliver_done: np.array, new_timestamp: int = 1e6):
 class LocalLedger:
     """
     Class used to keep track off all tasks that are elevator spesific.
+    AKA all the deliver requests. These requests are referred to as 'deliver'
+    jobs.
+    They are represented by a timestamp when the DELIVER was requested and a
+    timestamp when a request was compleated (DONE).
 
-    Works in a similar way as the Set data type where the most relevant task
+
+    It also tracks the STOP button and the obstruction in a similar way.
+
+    Works in a similar way as the 'Set' data type where the most relevant task
     is kept track of when using the '+' or "+=" operators.
     """
 

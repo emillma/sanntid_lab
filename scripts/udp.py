@@ -5,6 +5,10 @@ Created on Tue Feb 11 16:18:13 2020
 
 @author: user_id
 
+This file is heavily ispiered by the following git repo.
+https://gist.github.com/vxgmichel/e47bff34b68adb3cf6bd4845c4bed448
+
+For further documentation see that page.
 
 Provide high-level UDP endpoints for asyncio.
 Example:

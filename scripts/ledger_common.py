@@ -2,8 +2,7 @@
 """
 Created on Mon Feb 24 16:15:09 2020
 
-waiting for error fix in Numba
-https://github.com/numba/numba/issues/5100
+
 @author: user_id
 """
 
@@ -129,14 +128,17 @@ class CommonLedger:
     This class handles all the tasks that the elevators might have in common
     AKA all the up and down requests. These requests are referred to as 'get'
     jobs.
-    They are represented by a timestamp when the request was requested and a
-    timestamp when a request was compleated (done).
+    They are represented by a timestamp when the UP og DOWN was requested and a
+    timestamp when a request was compleated (DONE).
 
     It also tracks which elevator has said it is handling what request with
     the select_msgs.
     They are represented by a timestamp when the select message was last made,
     an ETD (estimated time of delivery), and the ID of the elevator saying it
     has taken the order.
+
+    Works in a similar way as the 'Set' data type where the most relevant task
+    is kept track of when using the '+' or "+=" operators.
     """
 
     def __init__(self,
@@ -174,9 +176,10 @@ class CommonLedger:
             self.NUMBER_OF_FLOORS = np.array(data['NUMBER_OF_FLOORS'],
                                              dtype=np.int64)
             self._get_done_msgs = np.array(data['_get_done_msgs'],
-                                          dtype=np.int64)
+                                           dtype=np.int64)
+
             self._select_msgs = np.array(data['_select_msgs'],
-                                                 dtype=np.int64)
+                                         dtype=np.int64)
 
         else:
             self.NUMBER_OF_FLOORS = number_of_floors
@@ -184,7 +187,7 @@ class CommonLedger:
             # floor, up/down, get/done
             if not np.any(get_done_msgs):
                 self._get_done_msgs = np.zeros((number_of_floors, 2, 2),
-                                              dtype=np.int64)
+                                               dtype=np.int64)
             else:
                 self._get_done_msgs = get_done_msgs
 
@@ -298,8 +301,8 @@ class CommonLedger:
                     other._select_msgs[floor, direction, :])
 
         return CommonLedger(self.NUMBER_OF_FLOORS,
-                            get_done_msgs = get_done_msgs,
-                            select_deselect_msgs = select_deselect_msgs)
+                            get_done_msgs=get_done_msgs,
+                            select_deselect_msgs=select_deselect_msgs)
 
     def __iadd__(self, other: CommonLedger):
         """
@@ -403,6 +406,7 @@ class CommonLedger:
         return np.where(has_task,
                         self._get_done_msgs[:, :, GET],
                         0)
+
     @property
     def available_jobs(self):
         """
@@ -449,15 +453,15 @@ if __name__ == '__main__':
     """
     a = CommonLedger(4)
     id1 = 100
-    a.add_task_get(1,0)
+    a.add_task_get(1, 0)
     a.add_select(1, 0, now() + 5e6, id1)
 
     b = CommonLedger(4)
     id2 = 200
-    b.add_task_get(2,1)
+    b.add_task_get(2, 1)
     b.add_select(1, 0, now() + 2e6, id2)
     c = a + b
 
-    d = CommonLedger(json_data = c.encode())
+    d = CommonLedger(json_data=c.encode())
     print(c)
     print('D == A + B: ', c == a+b)

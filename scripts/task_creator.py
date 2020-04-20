@@ -20,7 +20,6 @@ from ledger_local import LocalLedger
 from utils import now
 
 
-# common task
 class TaskCreator:
     """
     Object used to create get button and obstuction information \

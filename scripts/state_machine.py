@@ -26,25 +26,89 @@ DOWN = 1
 DELIVER = 2
 IDLE = 2
 
-def sort_best_jobs(jobs, current_floor):
+
+def sort_best_jobs(jobs: np.array, current_floor: int) -> list([int, int]):
+    """
+    Sort the jobs.
+    All jobs older than 10 secons are prioritized first by their timestamp,
+    then they are prioritized after which one are clostest to the current floor
+    and then by timestamp again.
+
+    Parameters
+    ----------
+    jobs : np.array
+        The UP DOWN jobs.
+    current_floor : int
+        The current floor.
+
+    Returns
+    -------
+    list([int, int])
+        List ist of the sorted jobs.
+
+    """
+
+    REALLY_OLD = 10e6
     FLOOR = 0
     DIR = 1
     tmp = np.where(jobs, jobs, 2**63-1)
     sort = np.array(np.unravel_index(np.argsort(tmp, axis=None), jobs.shape)).T
 
-    removed_invalid =  [i for i in sort if jobs[i[FLOOR], i[DIR]]]
+    removed_invalid = [i for i in sort if jobs[i[FLOOR], i[DIR]]]
+
+    really_old = [i for i in removed_invalid
+                  if now() - jobs[i[FLOOR], i[DIR]] > REALLY_OLD]
+
+    really_old = sorted(really_old,
+                        key=lambda job: jobs[job[FLOOR], job[DIR]])
+
+    not_really_old = [i for i in removed_invalid
+                      if now() - jobs[i[FLOOR], i[DIR]] <= REALLY_OLD]
+
+    not_really_old = sorted(not_really_old,
+                            key=lambda job: (abs(current_floor - job[FLOOR]),
+                                             jobs[job[FLOOR], job[DIR]]))
+
+    return really_old + not_really_old
 
 
-    key = lambda job: (abs(current_floor - job[FLOOR]),
-                       jobs[job[FLOOR], job[DIR]])
-    return sorted(removed_invalid, key = key)
+def oldest(jobs: np.array) -> np.array or int:
+    """
+    Return the floor of the oldest request or the floor and direction if the
+    job argument is a 2d array.
 
-def oldest(jobs):
+    Parameters
+    ----------
+    jobs : np.array
+       The UP DOWN jobs, DELIVER jobs or UP DOWN DELIVER jobs.
+
+    Returns
+    -------
+    np.array or int
+        Floor or the oldes request or floor and direction.
+
+    """
+
     tmp = np.where(jobs, jobs, 2**63-1)
     argmin = np.unravel_index(np.argmin(tmp), jobs.shape)
     return argmin if len(argmin) > 1 else argmin[0]
 
-def in_between(start, stop):
+
+def in_between(start: int, stop: int) -> iter(int):
+    """
+    Returns an iterable of all the floor from start to stop.
+
+    Parameters
+    ----------
+    start : int
+
+    stop : int
+
+    Returns
+    -------
+    iter(int)
+    """
+
     if stop >= start:
         return range(start, stop)
     else:
@@ -52,8 +116,22 @@ def in_between(start, stop):
 
 
 class State:
+    """
+    A generalization of the different States. All states inherits from this
+    class.
+    """
 
     def __init__(self, parent: StateMachine):
+        """
+        The parent is the Statemachine storing the shared information,
+        reference to the local ledger, common ledger and network link etc.
+
+        Parameters
+        ----------
+        parent : StateMachine
+            The parent statemachine.
+        """
+
         self.parent = parent
 
     async def enter(self):
@@ -88,14 +166,13 @@ class State:
                     self.time_to_floor(floor),
                     self.parent.id)
 
-
     def clear_select(self):
         get_jobs = self.parent.common_ledger.get_selected_jobs(self.parent.id)
         for floor in range(get_jobs.shape[0]):
             self.parent.common_ledger.remove_selection(floor, UP,
-                                                        self.parent.id)
+                                                       self.parent.id)
             self.parent.common_ledger.remove_selection(floor, DOWN,
-                                                        self.parent.id)
+                                                       self.parent.id)
 
     async def clear_all_order_lights(self):
         for floor, order_type in product(range(NUMBER_OF_FLOORS), range(3)):
@@ -113,13 +190,14 @@ class State:
     @property
     def oldest_job(self):
         tmp = np.where(self.jobs, self.jobs, 2**63-1)
-        return np.unravel_index(np.argmin(tmp, axis = None), tmp.shape)
+        return np.unravel_index(np.argmin(tmp, axis=None), tmp.shape)
 
     def switch_direction(self):
         if self.current_direction == UP:
             self.parent.current_direction = DOWN
         else:
             self.parent.current_direction = UP
+
 
 class Idle(State):
 
@@ -156,13 +234,13 @@ class Idle(State):
                     elif floor < self.floor:
                         self.parent.current_direction = DOWN
 
-
                 return AtFloor
 
             await asyncio.sleep(SLEEPTIME)
 
     async def leave(self):
         await asyncio.sleep(0.1)
+
 
 class Init(State):
 
@@ -204,12 +282,14 @@ class AtFloor(State):
 
         if self.current_direction == UP:
             if (not np.any(self.jobs[self.floor+1:, :])
-                and not self.jobs[self.floor, UP]):
+                    and not self.jobs[self.floor, UP]):
+
                 self.switch_direction()
 
         elif self.current_direction == DOWN:
             if (not np.any(self.jobs[:self.floor, :])
-                and not self.jobs[self.floor, DOWN]):
+                    and not self.jobs[self.floor, DOWN]):
+
                 self.switch_direction()
 
         if await self.open_door():
@@ -307,8 +387,11 @@ class Up(Travel):
 
 
 class StateMachine:
-    def __init__(self, elevator_link: ElevatorLink, local_ledger: LocalLedger,
-                 common_ledger: CommonLedger, id = None):
+    def __init__(self, elevator_link: ElevatorLink,
+                 local_ledger: LocalLedger,
+                 common_ledger: CommonLedger,
+                 id=None):
+
         if id is None:
             self.id = hash(now())
         else:
@@ -320,15 +403,16 @@ class StateMachine:
         self.state = Init(self)
         self.current_direction = None
         self.idle_floor = None
+
     async def run(self):
         while 1:
-            logging.info(f'Entering \t\t {type(self.state)}, {self.id}')
+            logging.info(f'Entering \t {type(self.state)}, {self.id}')
             await self.state.enter()
 
             logging.info(f'Processing \t {type(self.state)}, {self.id}')
             state_generator = await self.state.process()
 
-            logging.info(f'Leaving \t\t {type(self.state)}, {self.id}\n')
+            logging.info(f'Leaving \t {type(self.state)}, {self.id}\n')
             await self.state.leave()
             self.state = state_generator(self)
 
@@ -340,6 +424,8 @@ class StateMachine:
     def jobs(self):
         return np.hstack((self.common_ledger.get_selected_jobs(self.id),
                          self.local_ledger.jobs[:, None]))
+
+
 async def main():
 
     print('started')

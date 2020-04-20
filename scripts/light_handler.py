@@ -14,7 +14,9 @@ import asyncio
 SLEEPTIME = 0.02
 
 class LightHandler:
-
+    """
+    Object used to take care of turning on and turning off the lights.
+    """
     def __init__(self, elevator_link: ElevatorLink, local_ledger: LocalLedger,
                  common_ledger: CommonLedger):
         self.elevator_link = elevator_link
