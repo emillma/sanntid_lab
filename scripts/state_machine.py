@@ -176,17 +176,6 @@ class State:
                     self.time_to_floor(floor),
                     self.parent.id)
 
-    def clear_select(self):
-        """Clear all select messages from the elevator."""
-        get_tasks = self.parent.common_ledger.get_selected_tasks(
-            self.parent.id)
-
-        for floor in range(get_tasks.shape[0]):
-            self.parent.common_ledger.remove_selection(floor, UP,
-                                                       self.parent.id)
-            self.parent.common_ledger.remove_selection(floor, DOWN,
-                                                       self.parent.id)
-
     @property
     def tasks(self):
         """Tasks selected by the elevator and deliver tasks."""
@@ -242,15 +231,15 @@ class Idle(State):
 
                 return AtFloor
 
-            tasks = self.parent.common_ledger.tasks
-            for floor, direction in sort_best_tasks(tasks, self.floor):
+            get_tasks = self.parent.common_ledger.tasks
+            for floor, direction in sort_best_tasks(get_tasks, self.floor):
                 self.parent.common_ledger.add_select(
                         floor, direction,
                         self.time_to_floor(floor),
                         self.parent.id)
 
                 if self.tasks[floor, direction]:
-                    await asyncio.sleep(0.2)
+                    await asyncio.sleep(0.5)
                     if not self.tasks[floor, direction]:
                         continue
                     if floor > self.floor:
@@ -402,6 +391,11 @@ class Travel(State):
     async def process(self):
         """Fonction called when processing state."""
         while True:
+            if self.parent.stopped:
+                await asyncio.sleep(1)
+                continue
+
+            retval = await self.set_direction()
             retval, floor = await self.parent.elevator_link.get_floor()
             assert retval is None
             if floor is not None and floor != self.last_floor:
@@ -473,9 +467,23 @@ class StateMachine:
         self.state = Init(self)
         self.current_direction = None
         self.idle_floor = None
+        self.stopped = False
 
-    async def run(self):
-        """Run the coroutine."""
+    async def stop_watchdog(self):
+        """Watch if stop is pressed."""
+        while 1:
+            if self.local_ledger.stop:
+                print('stop')
+                self.local_ledger.clear()
+                self.common_ledger.clear_id(self.id)
+                await self.elevator_link.stop()
+                self.stopped = True
+            else:
+                self.stopped = False
+            await asyncio.sleep(SLEEPTIME)
+
+    async def run_elevator(self):
+        """Run the elevator state machine coroutine."""
         while 1:
             logging.info(f'Entering \t {type(self.state)}, {self.id}')
             await self.state.enter()
@@ -486,6 +494,11 @@ class StateMachine:
             logging.info(f'Leaving \t {type(self.state)}, {self.id}\n')
             await self.state.leave()
             self.state = state_generator(self)
+
+    async def run(self):
+        """Run the coroutine."""
+        await asyncio.gather(self.run_elevator(),
+                             self.stop_watchdog())
 
     @property
     def other_direction(self) -> UP or DOWN:

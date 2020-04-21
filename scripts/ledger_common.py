@@ -458,6 +458,12 @@ class CommonLedger:
         if id_ == self._select_msgs[floor, direction, ID]:
             self._select_msgs[floor, direction, :] = (0, 0, 0)
 
+    def clear_id(self, id_):
+        """Clear all select tasks matching the id."""
+        for floor in range(self.NUMBER_OF_FLOORS):
+            for direction in [UP, DOWN]:
+                self.remove_selection(floor, direction, id_)
+
 
 if __name__ == '__main__':
     """Run this too to see how some of the functions works."""

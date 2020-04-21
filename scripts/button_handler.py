@@ -81,7 +81,7 @@ class ButtonHandler:
                 if data == 1:
                     self.local_ledger.add_stop(now())
                 elif (data == 0
-                      and now()-self.local_ledger.stop_continue_msgs[0] > 5e5):
+                      and now()-self.local_ledger._stop_continue_msgs[0] > 5e5):
                     self.local_ledger.add_continue(now())
 
             # Obstruction

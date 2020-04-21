@@ -38,6 +38,7 @@ class LightHandler:
         self.common_ledger = common_ledger
         self.previous_local = None
         self.previous_common = None
+        self.previous_stop = None
 
     async def run(self):
         """Run the coroutine."""
@@ -63,5 +64,10 @@ class LightHandler:
                     await self.elevator_link.set_button_light(
                         floor, DOWN, ON if down else OFF)
             self.previous_common = common_tasks
+
+            stop = self.local_ledger.stop
+            if stop != self.previous_stop:
+                await self.elevator_link.set_stop_light(stop)
+            self.previous_stop = stop
 
             await asyncio.sleep(SLEEPTIME)

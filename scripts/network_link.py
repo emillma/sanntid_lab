@@ -13,7 +13,7 @@ import asyncio
 import random
 from ledger_common import CommonLedger
 
-SLEEPTIME = 0.05
+SLEEPTIME = 0.1
 
 
 class NetworkLink:
@@ -76,7 +76,7 @@ class NetworkLink:
             self.sendto = sendto
 
         self.endpoint = None
-        # self.out_ip = '255.255.255.255'
+        # Use self.out_ip = '255.255.255.255' if broadcasting on local network
         self.out_ip = 'localhost'
         self.out_addr = ('localhost', port)
 
