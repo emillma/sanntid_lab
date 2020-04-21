@@ -271,12 +271,28 @@ class LocalLedger:
                           other._deliver_done_msgs[floor, DONE])
 
         self._stop_continue_msgs = np.maximum(self._stop_continue_msgs,
-                                             other._stop_continue_msgs)
+                                              other._stop_continue_msgs)
 
         self._block_deblock_msgs = np.maximum(self._block_deblock_msgs,
-                                             other._block_deblock_msgs)
+                                              other._block_deblock_msgs)
 
         return self
+
+    def dumps(self) -> str:
+        """Dump the class to a json string representation.
+
+        Returns
+        -------
+        str
+            json representation of the object.
+        """
+        data = {}
+        data['type'] = 'LocalLedger'
+        data['NUMBER_OF_FLOORS'] = self.NUMBER_OF_FLOORS
+        data['_deliver_done_msgs'] = self._deliver_done_msgs.tolist()
+        data['_stop_continue_msgs'] = self._stop_continue_msgs.tolist()
+        data['_block_deblock_msgs'] = self._block_deblock_msgs.tolist()
+        return json.dumps(data)
 
     def encode(self) -> bytes:
         """Encode the ledger to bytes.
@@ -287,15 +303,9 @@ class LocalLedger:
         Returns
         -------
         bytes
-            json representation of the object.
+            binary json representation of the object.
         """
-        data = {}
-        data['type'] = 'LocalLedger'
-        data['NUMBER_OF_FLOORS'] = self.NUMBER_OF_FLOORS
-        data['_deliver_done_msgs'] = self._deliver_done_msgs.tolist()
-        data['_stop_continue_msgs'] = self._stop_continue_msgs.tolist()
-        data['_block_deblock_msgs'] = self._block_deblock_msgs.tolist()
-        return json.dumps(data).encode()
+        return self.dumps().encode()
 
     def add_task_deliver(self, floor, timestamp=None):
         """Add a deliver task."""

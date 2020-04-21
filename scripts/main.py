@@ -19,6 +19,7 @@ from state_machine import StateMachine
 from button_handler import ButtonHandler
 from light_handler import LightHandler
 
+from local_backup import LocalBackup
 
 logging.basicConfig(format='[%(asctime)s %(filename)s:%(lineno)d] %(message)s',
                     datefmt='%H:%M:%S',
@@ -29,6 +30,10 @@ async def elevator(elevator_number):
     """Run a elevator."""
     common_ledger = CommonLedger(number_of_floors=4)
     local_ledger = LocalLedger(number_of_floors=4)
+    local_backup = LocalBackup(local_ledger,
+                               common_ledger,
+                               id_=1 + elevator_number)
+    local_backup.load_backup()
 
     network_kwargs = {'port': 9000 + elevator_number,
                       'common_ledger': common_ledger,
@@ -57,15 +62,16 @@ async def elevator(elevator_number):
         await asyncio.gather(network_link.run(),
                              task_creator.run(),
                              state_machine.run(),
-                             light_handler.run())
+                             light_handler.run(),
+                             local_backup.run())
 
 
 async def main():
     """Run multiple elevators."""
     #  start multiple elevators
     await asyncio.gather(
-        elevator(0),
-        elevator(1),
+        # elevator(0),
+        # elevator(1),
         elevator(2))
 
 asyncio.run(main())

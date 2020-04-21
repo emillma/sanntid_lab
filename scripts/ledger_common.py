@@ -340,6 +340,22 @@ class CommonLedger:
         self.remove_old()
         return self
 
+    def dumps(self) -> str:
+        """Dump the class to a json string representation.
+
+        Returns
+        -------
+        str
+            json representation of the object.
+        """
+        self.remove_old()
+        data = {}
+        data['type'] = 'CommonLedger'
+        data['NUMBER_OF_FLOORS'] = self.NUMBER_OF_FLOORS
+        data['_get_done_msgs'] = self._get_done_msgs.tolist()
+        data['_select_msgs'] = self._select_msgs.tolist()
+        return json.dumps(data)
+
     def encode(self):
         """Encode the ledger to bytes.
 
@@ -351,13 +367,7 @@ class CommonLedger:
         bytes
             json representation of the object.
         """
-        self.remove_old()
-        data = {}
-        data['type'] = 'CommonLedger'
-        data['NUMBER_OF_FLOORS'] = self.NUMBER_OF_FLOORS
-        data['_get_done_msgs'] = self._get_done_msgs.tolist()
-        data['_select_msgs'] = self._select_msgs.tolist()
-        return json.dumps(data).encode()
+        return self.dumps().encode()
 
     def add_task_get(self, floor, ud, timestamp=None):
         """Add a get task.

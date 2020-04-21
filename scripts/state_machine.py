@@ -432,7 +432,8 @@ class StateMachine:
     It doea not care if other elevators are online or not.
     """
 
-    def __init__(self, elevator_link: ElevatorLink,
+    def __init__(self,
+                 elevator_link: ElevatorLink,
                  local_ledger: LocalLedger,
                  common_ledger: CommonLedger,
                  id_: Optional(int) = None):

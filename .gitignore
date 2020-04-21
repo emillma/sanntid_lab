@@ -58,3 +58,4 @@ docs/_build/
 target/
 
 scripts/test0.py
+scripts/local_backup

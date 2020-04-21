@@ -13,7 +13,7 @@ import asyncio
 import random
 from ledger_common import CommonLedger
 
-SLEEPTIME = 0.1
+SLEEPTIME = 0.05
 
 
 class NetworkLink:
