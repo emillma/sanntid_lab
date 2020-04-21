@@ -48,7 +48,7 @@ class LocalBackup:
             with open(self.backup_file1, 'r') as file:
                 data = json.load(file)
 
-        except Exception:
+        except Exception as e:
             try:
                 with open(self.backup_file2, 'r') as file:
                     data = json.load(file)
@@ -56,11 +56,13 @@ class LocalBackup:
                 pass
 
         if data is not None:
-            print('loads')
+
             common_ledger_bytes = data['common_ledger'].encode()
             self.common_ledger += CommonLedger(json_data=common_ledger_bytes)
             local_ledger_bytes = data['local_ledger'].encode()
-            self.local_ledger += LocalLedger(json_data=local_ledger_bytes)
+            self.local_ledger += local_ledger_bytes
+
+
 
     async def run(self):
         """Run the coroutine.
@@ -70,10 +72,13 @@ class LocalBackup:
         while True:
             data = {'local_ledger': self.local_ledger.dumps(),
                     'common_ledger': self.common_ledger.dumps()}
+
             with open(self.backup_file1, 'w') as file:
                 json.dump(data, file)
 
-            with open(self.backup_file2, 'w') as file:
+
+            with open(self.backup_file1, 'w') as file:
                 json.dump(data, file)
+
 
             await asyncio.sleep(SLEEPTIME)

@@ -40,7 +40,7 @@ async def elevator(elevator_number):
                       'update_rate': 20,
                       'sendto': [9000, 9001, 9002]}
 
-    #  open connection with elevator ant udp ports
+    #  open connection with elevator and udp ports
     async with \
             ElevatorLink(port=15657 + elevator_number) as elevator_link, \
             NetworkLink(**network_kwargs) as network_link:
@@ -50,9 +50,9 @@ async def elevator(elevator_number):
                                      common_ledger,
                                      id_=1 + elevator_number)
 
-        task_creator = ButtonHandler(elevator_link,
-                                     local_ledger,
-                                     common_ledger)
+        button_handler = ButtonHandler(elevator_link,
+                                       local_ledger,
+                                       common_ledger)
 
         light_handler = LightHandler(elevator_link,
                                      local_ledger,
@@ -60,18 +60,19 @@ async def elevator(elevator_number):
 
         #  start all the differnet coroutines belonging to one elevator
         await asyncio.gather(network_link.run(),
-                             task_creator.run(),
+                             button_handler.run(),
                              state_machine.run(),
                              light_handler.run(),
-                             local_backup.run())
+                             local_backup.run()
+                             )
 
 
 async def main():
     """Run multiple elevators."""
-    #  start multiple elevators
     await asyncio.gather(
-        # elevator(0),
-        # elevator(1),
+        elevator(0),
+        elevator(1),
         elevator(2))
 
-asyncio.run(main())
+if __name__ == '__main__':
+    asyncio.run(main())

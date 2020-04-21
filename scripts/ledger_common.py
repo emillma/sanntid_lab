@@ -79,7 +79,7 @@ def merge_in_done(get_done, new_done_timestamp):
     get_done[DONE] = np.maximum(get_done[DONE], new_done_timestamp)
 
 
-def merge_in_select(old, select_msg, hyst=1e6):
+def merge_in_select(old, select_msg):
     """Merge in a select_msg.
 
     If the new select message is more relevant than the old one, the old one
@@ -116,7 +116,7 @@ def merge_in_select(old, select_msg, hyst=1e6):
         # If the timestamps are similar
         if (np.abs(old[STAMP] - select_msg[STAMP]) < SELECT_TIMEOUT):
             # If the ETD of a is larger than b, swap
-            if old[ETD] - hyst > select_msg[ETD]:
+            if old[ETD] > select_msg[ETD]:
                 old[:] = select_msg
         else:
             # If the timestamp of a is smaller

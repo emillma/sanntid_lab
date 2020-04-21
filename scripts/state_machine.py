@@ -152,7 +152,7 @@ class State:
         """Setimate time to get to a specific floor."""
         min_floor = min(self.floor, floor)
         max_floor = max(self.floor, floor)
-        get = self.parent.common_ledger.get_selected_tasks(self.parent.id)
+        get = self.tasks[:, (UP, DOWN)]
         deliver = self.parent.local_ledger.tasks
         stops = np.logical_or(get[:, self.parent.current_direction], deliver)
         stop_cout = np.count_nonzero(stops[min_floor + 1: max_floor])
@@ -161,20 +161,22 @@ class State:
 
         return (now()
                 + (max_floor - min_floor) * TRAVELTIME
-                + stop_cout * FLOORTIME)
+                + stop_cout * FLOORTIME
+                + np.random.randint(0,1e5))
 
     def update_select(self):
         """Update the select messages.
 
         If not called, another elevator will take the task.
         """
-        get_tasks = self.tasks[:, (UP, DOWN)]
-        for floor in range(get_tasks.shape[1]):
-            if get_tasks[self.current_direction, floor]:
-                self.parent.common_ledger.add_select(
-                    floor, self.current_direction,
-                    self.time_to_floor(floor),
-                    self.parent.id)
+        for floor in range(self.tasks.shape[0]):
+            for direction in[UP, DOWN]:
+                if self.tasks[floor, direction]:
+                    self.parent.common_ledger.add_select(
+                        floor,
+                        direction,
+                        self.time_to_floor(floor),
+                        self.parent.id)
 
     @property
     def tasks(self):
@@ -201,6 +203,36 @@ class State:
             self.parent.current_direction = DOWN
         else:
             self.parent.current_direction = UP
+
+
+class Init(State):
+    """The initialization state.
+
+    If the elevator is restarted this will be the entry point.
+    """
+
+    def __init__(self, parent: StateMachine):
+        super().__init__(parent)
+
+    async def enter(self):
+        """Fonction called when entering state."""
+        self.parent.current_direction = DOWN
+        pass
+
+    async def process(self):
+        """Fonction called when processing state."""
+        retval, floor = await self.parent.elevator_link.get_floor()
+        assert retval is None
+        if floor is None:
+            while True:
+                await self.parent.elevator_link.go_down()
+                retval, floor = await self.parent.elevator_link.get_floor()
+                assert retval is None
+                if floor is not None:
+                    return AtFloor
+                await asyncio.sleep(SLEEPTIME)
+        else:
+            return AtFloor
 
 
 class Idle(State):
@@ -233,8 +265,10 @@ class Idle(State):
 
             get_tasks = self.parent.common_ledger.tasks
             for floor, direction in sort_best_tasks(get_tasks, self.floor):
+
                 self.parent.common_ledger.add_select(
-                        floor, direction,
+                        floor,
+                        direction,
                         self.time_to_floor(floor),
                         self.parent.id)
 
@@ -251,36 +285,6 @@ class Idle(State):
                     return AtFloor
 
             await asyncio.sleep(SLEEPTIME)
-
-
-class Init(State):
-    """The initialization state.
-
-    If the elevator is restarted this will be the entry point.
-    """
-
-    def __init__(self, parent: StateMachine):
-        super().__init__(parent)
-
-    async def enter(self):
-        """Fonction called when entering state."""
-        self.parent.current_direction = DOWN
-        pass
-
-    async def process(self):
-        """Fonction called when processing state."""
-        retval, floor = await self.parent.elevator_link.get_floor()
-        assert retval is None
-        if floor is None:
-            while True:
-                await self.parent.elevator_link.go_down()
-                retval, floor = await self.parent.elevator_link.get_floor()
-                assert retval is None
-                if floor is not None:
-                    return AtFloor
-                await asyncio.sleep(SLEEPTIME)
-        else:
-            return AtFloor
 
 
 class AtFloor(State):
@@ -474,7 +478,6 @@ class StateMachine:
         """Watch if stop is pressed."""
         while 1:
             if self.local_ledger.stop:
-                print('stop')
                 self.local_ledger.clear()
                 self.common_ledger.clear_id(self.id)
                 await self.elevator_link.stop()

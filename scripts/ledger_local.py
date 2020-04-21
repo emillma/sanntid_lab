@@ -69,7 +69,7 @@ def merge_in_done(deliver_done: np.array, new_timestamp: int = 1e6):
     None.
 
     """
-    deliver_done[DONE] = np.maximum(deliver_done[DELIVER], new_timestamp)
+    deliver_done[DONE] = np.maximum(deliver_done[DONE], new_timestamp)
 
 
 class LocalLedger:
@@ -264,11 +264,14 @@ class LocalLedger:
 
         for floor in range(self.NUMBER_OF_FLOORS):
 
-            merge_in_deliver(self._deliver_done_msgs[floor, :],
-                             other._deliver_done_msgs[floor, DELIVER])
+            self.add_task_deliver(
+                floor, other._deliver_done_msgs[floor, DELIVER].copy())
 
-            merge_in_done(self._deliver_done_msgs[floor, :],
-                          other._deliver_done_msgs[floor, DONE])
+
+            self.add_task_done(
+                floor, other._deliver_done_msgs[floor, DONE].copy())
+
+
 
         self._stop_continue_msgs = np.maximum(self._stop_continue_msgs,
                                               other._stop_continue_msgs)
@@ -377,7 +380,7 @@ if __name__ == '__main__':
     """Run this too to see how some of the functions works."""
     a = LocalLedger(4)
     b = LocalLedger(4)
-    b.add_task_done(1, now())
+    b.add_task_done(2, now())
     a.add_task_done(1, now())
     a.add_task_deliver(1, now() + 1)
     b.add_task_deliver(1, now() + 1)

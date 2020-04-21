@@ -21,6 +21,11 @@ from ledger_local import LocalLedger
 from utils import now
 
 SLEEPTIME = 0.1
+
+UP = 0
+DOWN = 1
+DELIVER = 2
+
 class ButtonHandler:
     """Object used to create tasks from buttons and obstruction."""
 
@@ -59,20 +64,23 @@ class ButtonHandler:
         """
 
         for floor, order in itertools.product(
-                range(self.elevator_link.floor_n), range(3)):
-            # Order: Up: 0, Down: 1, Cab: 2
-            if (floor == 0 and order == 1
+                range(self.elevator_link.floor_n),
+                [UP, DOWN, DELIVER]):
+
+            # Up, Down orders
+            if (floor == UP and order == DOWN
                     or floor == self.elevator_link.floor_n - 1
-                    and order == 0):
+                    and order == UP):
                 continue  # No point in polling invalid buttons
+
             retval, data = await self.elevator_link.get_order_button(floor,
                                                                      order)
 
-            # Orders
+            # Order
             if retval is None and data == 1:
-                if order in [0, 1]:
+                if order in [UP, DOWN]:
                     self.common_ledger.add_task_get(floor, order, now())
-                if order == 2:
+                if order == DELIVER:
                     self.local_ledger.add_task_deliver(floor, now())
 
             # Stop
