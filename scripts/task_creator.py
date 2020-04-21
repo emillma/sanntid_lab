@@ -20,7 +20,7 @@ from ledger_local import LocalLedger
 
 from utils import now
 
-
+SLEEPTIME = 0.1
 class ButtonHandler:
     """Object used to create tasks from buttons and obstruction."""
 
@@ -104,4 +104,4 @@ class ButtonHandler:
 
         while 1:
             await self.poll_buttons()
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(SLEEPTIME)
