@@ -93,15 +93,7 @@ class ButtonHandler:
                     self.local_ledger.add_deblock(now())
 
     async def run(self):
-        """
-        Run the task crator function.
-
-        Returns
-        -------
-        None.
-
-        """
-
+        """Run the task crator function."""
         while 1:
             await self.poll_buttons()
             await asyncio.sleep(SLEEPTIME)

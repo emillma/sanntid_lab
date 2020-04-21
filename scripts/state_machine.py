@@ -1,20 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Apr 17 13:08:26 2020
+Created on Fri Apr 17 13:08:26 2020.
 
 @author: user_id
 """
 
 
 from __future__ import annotations
-from elevator_link import ElevatorLink
+from typing import Optional
+
 import asyncio
 import logging
+import numpy as np
+
+from elevator_link import ElevatorLink
 from ledger_local import LocalLedger
 from ledger_common import CommonLedger
-from itertools import product
 from utils import now
-import numpy as np
 
 
 NUMBER_OF_FLOORS = 4
@@ -29,8 +31,8 @@ IDLE = 2
 
 
 def sort_best_tasks(tasks: np.array, current_floor: int) -> list([int, int]):
-    """
-    Sort the tasks.
+    """Sort the tasks.
+
     All tasks older than 10 secons are prioritized first by their timestamp,
     then they are prioritized after which one are clostest to the current floor
     and then by timestamp again.
@@ -48,12 +50,12 @@ def sort_best_tasks(tasks: np.array, current_floor: int) -> list([int, int]):
         List ist of the sorted tasks.
 
     """
-
     REALLY_OLD = 10e6
     FLOOR = 0
     DIR = 1
     tmp = np.where(tasks, tasks, 2**63-1)
-    sort = np.array(np.unravel_index(np.argsort(tmp, axis=None), tasks.shape)).T
+    sort = np.array(np.unravel_index(np.argsort(tmp, axis=None),
+                                     tasks.shape)).T
 
     removed_invalid = [i for i in sort if tasks[i[FLOOR], i[DIR]]]
 
@@ -68,13 +70,14 @@ def sort_best_tasks(tasks: np.array, current_floor: int) -> list([int, int]):
 
     not_really_old = sorted(not_really_old,
                             key=lambda task: (abs(current_floor - task[FLOOR]),
-                                             tasks[task[FLOOR], task[DIR]]))
+                                              tasks[task[FLOOR], task[DIR]]))
 
     return really_old + not_really_old
 
 
 def oldest(tasks: np.array) -> np.array or int:
-    """
+    """Get the oldest task.
+
     Return the floor of the oldest request or the floor and direction if the
     task argument is a 2d array.
 
@@ -89,14 +92,13 @@ def oldest(tasks: np.array) -> np.array or int:
         Floor or the oldes request or floor and direction.
 
     """
-
     tmp = np.where(tasks, tasks, 2**63-1)
     argmin = np.unravel_index(np.argmin(tmp), tasks.shape)
     return argmin if len(argmin) > 1 else argmin[0]
 
 
 def in_between(start: int, stop: int) -> iter(int):
-    """Returns an iterable of all the floor from start to stop.
+    """Return an iterable of all the floor from start to stop.
 
     Parameters
     ----------
@@ -176,17 +178,14 @@ class State:
 
     def clear_select(self):
         """Clear all select messages from the elevator."""
-        get_tasks = self.parent.common_ledger.get_selected_tasks(self.parent.id)
+        get_tasks = self.parent.common_ledger.get_selected_tasks(
+            self.parent.id)
+
         for floor in range(get_tasks.shape[0]):
             self.parent.common_ledger.remove_selection(floor, UP,
                                                        self.parent.id)
             self.parent.common_ledger.remove_selection(floor, DOWN,
                                                        self.parent.id)
-
-    async def clear_all_order_lights(self):
-        for floor, order_type in product(range(NUMBER_OF_FLOORS), range(3)):
-            await self.parent.elevator_link.set_button_light(
-                floor, order_type, 0)
 
     @property
     def tasks(self):
@@ -205,6 +204,10 @@ class State:
         return np.unravel_index(np.argmin(tmp, axis=None), tmp.shape)
 
     def switch_direction(self):
+        """Switch direction.
+
+        UP -> DOWN, DOWN -> UP
+        """
         if self.current_direction == UP:
             self.parent.current_direction = DOWN
         else:
@@ -212,14 +215,21 @@ class State:
 
 
 class Idle(State):
+    """Idle state.
+
+    If the Elevator has served all its tasks it will look for get task to
+    select and serve.
+    """
 
     async def enter(self):
+        """Fonction called when entering state."""
         retval = await self.parent.elevator_link.stop()
         retval, floor = await self.parent.elevator_link.get_floor()
         self.floor = floor
         await self.parent.elevator_link.set_floor_indicator(floor)
 
     async def process(self):
+        """Fonction called when processing state."""
         while True:
             deliver_tasks = self.tasks[:, DELIVER]
 
@@ -255,15 +265,21 @@ class Idle(State):
 
 
 class Init(State):
+    """The initialization state.
+
+    If the elevator is restarted this will be the entry point.
+    """
 
     def __init__(self, parent: StateMachine):
         super().__init__(parent)
 
     async def enter(self):
+        """Fonction called when entering state."""
         self.parent.current_direction = DOWN
         pass
 
     async def process(self):
+        """Fonction called when processing state."""
         retval, floor = await self.parent.elevator_link.get_floor()
         assert retval is None
         if floor is None:
@@ -277,13 +293,16 @@ class Init(State):
         else:
             return AtFloor
 
-    async def leave(self):
-        pass
-
 
 class AtFloor(State):
+    """At floor stae.
+
+    All other states enter or exits from this state. It checs if the elevator
+    should open the door, go to idle or move.
+    """
 
     async def enter(self):
+        """Fonction called when entering state."""
         retval = await self.parent.elevator_link.stop()
         retval, floor = await self.parent.elevator_link.get_floor()
         self.floor = floor
@@ -291,7 +310,7 @@ class AtFloor(State):
         self.update_select()
 
     async def process(self):
-
+        """Fonction when processing state."""
         if self.current_direction == UP:
             if (not np.any(self.tasks[self.floor+1:, :])
                     and not self.tasks[self.floor, UP]):
@@ -316,24 +335,30 @@ class AtFloor(State):
             return Up
 
     async def open_door(self):
+        """Check if the doors should open."""
         pick_up = self.parent.common_ledger.tasks[
             self.floor, self.current_direction]
         return self.tasks[self.floor, DELIVER] or pick_up
 
     async def leave(self):
+        """Fonction called when leaving state."""
         self.update_select()
 
 
 class DoorOpen(State):
+    """State when opening the door and keeping the door open.
 
-    async def get_next_state(self):
-        pass
+    The door will not close as long as it is blicket or someone is pressing
+    the deliver button at that floor.
+    """
 
     async def enter(self):
+        """Fonction called when entering state."""
         retval, floor = await self.parent.elevator_link.get_floor()
         self.floor = floor
 
     async def process(self):
+        """Fonction called when processing state."""
         while True:
             await self.parent.elevator_link.set_door_light(1)
             self.parent.local_ledger.add_task_done(self.floor)
@@ -348,10 +373,12 @@ class DoorOpen(State):
         return AtFloor
 
     async def leave(self):
+        """Fonction called when leaving state."""
         await self.parent.elevator_link.set_door_light(0)
         await asyncio.sleep(0.5)
 
     def keep_door_open(self):
+        """Check if the doors should be kept open."""
         blocked = self.parent.local_ledger.block
 
         deliver = self.tasks[self.floor, DELIVER]
@@ -363,20 +390,17 @@ class DoorOpen(State):
 
 
 class Travel(State):
-
-    async def set_direction(self):
-        pass
-
-    def next_state(self):
-        pass
+    """Generalization of state when travel."""
 
     async def enter(self):
+        """Fonction called when entering state."""
         retval = await self.set_direction()
         assert retval is None
         retval, floor = await self.parent.elevator_link.get_floor()
         self.last_floor = floor
 
     async def process(self):
+        """Fonction called when processing state."""
         while True:
             retval, floor = await self.parent.elevator_link.get_floor()
             assert retval is None
@@ -384,27 +408,62 @@ class Travel(State):
                 return AtFloor
             await asyncio.sleep(SLEEPTIME)
 
+    async def set_direction(self):
+        """Set the direction of the elevator."""
+        pass
+
 
 class Down(Travel):
+    """Stat when traveling down between floors."""
+
     async def set_direction(self):
+        """Set the direction of the elevator."""
         self.parent.current_direction = DOWN
         return await self.parent.elevator_link.go_down()
 
 
 class Up(Travel):
+    """Stat when traveling up between floors."""
+
     async def set_direction(self):
+        """Set the direction of the elevator."""
         self.parent.current_direction = UP
         return await self.parent.elevator_link.go_up()
 
 
 class StateMachine:
+    """The main state machine controlling the elevator.
+
+    The state machine gets infromation from the local_ledger and common_ledger.
+    It doea not care if other elevators are online or not.
+    """
+
     def __init__(self, elevator_link: ElevatorLink,
                  local_ledger: LocalLedger,
                  common_ledger: CommonLedger,
-                 id_=None):
+                 id_: Optional(int) = None):
+        """Initialize the state machine.
 
+        Parameters
+        ----------
+        elevator_link : ElevatorLink
+
+        local_ledger : LocalLedger
+
+        common_ledger : CommonLedger
+
+        id_ : Optional(int), optional
+            The id of the elevator, has to be unique.
+            If None, a random int will be assigned.
+            The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
         if id_ is None:
-            self.id = hash(now())
+            self.id = hash(np.random.random())
         else:
             self.id = id_
 
@@ -416,6 +475,7 @@ class StateMachine:
         self.idle_floor = None
 
     async def run(self):
+        """Run the coroutine."""
         while 1:
             logging.info(f'Entering \t {type(self.state)}, {self.id}')
             await self.state.enter()
@@ -428,19 +488,19 @@ class StateMachine:
             self.state = state_generator(self)
 
     @property
-    def other_direction(self):
+    def other_direction(self) -> UP or DOWN:
+        """Opposite of the current direction.
+
+        Returns
+        -------
+        UP or DOWN
+            The opposite direction of the current one.
+
+        """
         return UP if self.current_direction == DOWN else DOWN
 
     @property
-    def tasks(self):
+    def tasks(self) -> np.array:
+        """DELIVER and the selected UP and DOWN tasks."""
         return np.hstack((self.common_ledger.get_selected_tasks(self.id),
                          self.local_ledger.tasks[:, None]))
-
-
-async def main():
-
-    print('started')
-    async with ElevatorLink() as elevator_link:
-        logging.degub('got here')
-        state_machine = StateMachine(elevator_link)
-        await state_machine.run()
