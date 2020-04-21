@@ -224,23 +224,23 @@ class Idle(State):
             jobs = self.parent.common_ledger.jobs
             for floor, direction in sort_best_jobs(jobs, self.floor):
                 self.parent.common_ledger.add_select(
-                        floor, self.current_direction,
+                        floor, direction,
                         self.time_to_floor(floor),
                         self.parent.id)
 
                 if self.jobs[floor, direction]:
+                    await asyncio.sleep(0.2)
+                    if not self.jobs[floor, direction]:
+                        continue
                     if floor > self.floor:
                         self.parent.current_direction = UP
 
                     elif floor < self.floor:
                         self.parent.current_direction = DOWN
 
-                return AtFloor
+                    return AtFloor
 
             await asyncio.sleep(SLEEPTIME)
-
-    async def leave(self):
-        await asyncio.sleep(0.1)
 
 
 class Init(State):
@@ -305,7 +305,6 @@ class AtFloor(State):
             return Up
 
     async def open_door(self):
-        await asyncio.sleep(0.2)
         pick_up = self.parent.common_ledger.jobs[
             self.floor, self.current_direction]
         return self.jobs[self.floor, DELIVER] or pick_up

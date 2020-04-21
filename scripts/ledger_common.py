@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Feb 24 16:15:09 2020
-
+Created on Mon Feb 24 16:15:09 2020.
 
 @author: user_id
 """
@@ -28,8 +27,9 @@ DONE = 1
 SELECT_TIMEOUT = 5e6
 
 
-def merge_in_get(get_done, new_timestamp):
-    """
+def merge_in_get(get_done, new_get_timestamp):
+    """Merge in new_get_timestamp.
+
     If the new get message is more relevant than the old one, the old one
     is replaced byt the new one.
 
@@ -45,22 +45,22 @@ def merge_in_get(get_done, new_timestamp):
     None.
 
     """
-
     if not get_done[GET]:
-        get_done[GET] = new_timestamp
+        get_done[GET] = new_get_timestamp
     # If the old message is invalid
     elif get_done[GET] < get_done[DONE]:
-        if new_timestamp > get_done[DONE]:
-            get_done[GET] = new_timestamp
+        if new_get_timestamp > get_done[DONE]:
+            get_done[GET] = new_get_timestamp
     # If the old message is valid
     else:
         # If the new message also is valid
-        if new_timestamp > get_done[DONE]:
-            get_done[GET] = np.minimum(get_done[GET], new_timestamp)
+        if new_get_timestamp > get_done[DONE]:
+            get_done[GET] = np.minimum(get_done[GET], new_get_timestamp)
 
 
-def merge_in_done(get_done, new_timestamp):
-    """
+def merge_in_done(get_done, new_done_timestamp):
+    """Merge in a new_done_timestamp.
+
     If the new done message is more relevant than the old one, the old one
     is replaced byt the new one.
 
@@ -76,12 +76,12 @@ def merge_in_done(get_done, new_timestamp):
     None.
 
     """
-
-    get_done[DONE] = np.maximum(get_done[DONE], new_timestamp)
+    get_done[DONE] = np.maximum(get_done[DONE], new_done_timestamp)
 
 
 def merge_in_select(old, select_msg, hyst=1e6):
-    """
+    """Merge in a select_msg.
+
     If the new select message is more relevant than the old one, the old one
     is replaced byt the new one.
 
@@ -99,7 +99,6 @@ def merge_in_select(old, select_msg, hyst=1e6):
     None.
 
     """
-
     # if they have the same id
     if old[ID] == select_msg[ID]:
         # use the most recent
@@ -126,7 +125,8 @@ def merge_in_select(old, select_msg, hyst=1e6):
 
 
 class CommonLedger:
-    """
+    """Container for shared tasks.
+
     This class handles all the tasks that the elevators might have in common
     AKA all the up and down requests. These requests are referred to as 'get'
     jobs.
@@ -148,8 +148,7 @@ class CommonLedger:
                  json_data: Optional[bytes] = None,
                  get_done_msgs: Optional[np.array] = None,
                  select_deselect_msgs: Optional[np.array] = None):
-        """
-        Initialises the commonledger.
+        """Initialize the commonledger.
 
         It can be initialized as empty, from get and select messages or from
         a set of bytes (used in network communication).
@@ -171,7 +170,6 @@ class CommonLedger:
             An array representing the select messsages.
             The default is None.
         """
-
         if json_data is not None:
             data = json.loads(json_data.decode())
             assert data['type'] == 'CommonLedger', TypeError
@@ -202,7 +200,8 @@ class CommonLedger:
         self.remove_old()
 
     def __repr__(self) -> str:
-        """
+        """Return representatnio of ledger.
+
         Funcion used to display the ledger
         Exemple:
 
@@ -212,7 +211,6 @@ class CommonLedger:
             Representation of the CommonLedger.
 
         """
-
         self.remove_old()
         out = 'Get Done Messages\n'
         for floor in range(self._get_done_msgs.shape[0]):
@@ -242,7 +240,8 @@ class CommonLedger:
         return out
 
     def __str__(self) -> str:
-        """
+        """Return string representatnio of ledger.
+
         Funcion used to display the ledger as a string. Same as __repr__.
 
         Returns
@@ -253,7 +252,8 @@ class CommonLedger:
         return self.__repr__()
 
     def __eq__(self, other: CommonLedger) -> bool:
-        """
+        """Implement == operator.
+
         Test if two CommonLedger are equal (==).
 
         Parameters
@@ -273,7 +273,8 @@ class CommonLedger:
                 )
 
     def __add__(self, other) -> CommonLedger:
-        """
+        """Implement + operator.
+
         Merge two CommonLedger together, and return the newl created ledger.
 
         Parameters
@@ -307,7 +308,8 @@ class CommonLedger:
                             select_deselect_msgs=select_deselect_msgs)
 
     def __iadd__(self, other: CommonLedger):
-        """
+        """Implement += operator.
+
         Overrides the plus equal operator (+=).
 
         Parameters
@@ -339,7 +341,8 @@ class CommonLedger:
         return self
 
     def encode(self):
-        """
+        """Encode the ledger to bytes.
+
         Translate the object to a json represenation in bytes.
         Uset to send the object over a network connection.
 
@@ -348,7 +351,6 @@ class CommonLedger:
         bytes
             json representation of the object.
         """
-
         self.remove_old()
         data = {}
         data['type'] = 'CommonLedger'
@@ -358,7 +360,8 @@ class CommonLedger:
         return json.dumps(data).encode()
 
     def add_task_get(self, floor, ud, timestamp=None):
-        """
+        """Add a get task.
+
         Add a new get task, if it is less informative than the old one,
         nothing will happen.
         """
@@ -369,7 +372,8 @@ class CommonLedger:
         merge_in_get(self._get_done_msgs[floor, ud, :], timestamp)
 
     def add_task_done(self, floor, ud, timestamp=None):
-        """
+        """Add a done message.
+
         Add a new done message, if it is less informative than the old one,
         nothing will happen.
         """
@@ -380,7 +384,8 @@ class CommonLedger:
         merge_in_done(self._get_done_msgs[floor, ud, :], timestamp)
 
     def add_select(self, floor, ud, etd, id,  timestamp=None):
-        """
+        """Add a select message.
+
         Add a new select message, if it is less informative than the old one,
         nothing will happen.
         """
@@ -390,7 +395,8 @@ class CommonLedger:
         merge_in_select(self._select_msgs[floor, ud, :], select)
 
     def remove_old(self):
-        """
+        """Remove to old select messages.
+
         Removes all select messages that are older than SELECT_TIMEOUT
         """
         old = now() - self._select_msgs[:, :, STAMP] > SELECT_TIMEOUT
@@ -398,7 +404,8 @@ class CommonLedger:
 
     @property
     def jobs(self):
-        """
+        """Return all available jobs.
+
         Returns an array representation of all the get tasks. For every floor
         and direction it return 0 if there is no task or the timestamp of the
         request if there is one.
@@ -411,7 +418,8 @@ class CommonLedger:
 
     @property
     def available_jobs(self):
-        """
+        """Return all jobs not selected.
+
         Returns an array representation of all the get tasks that are not
         selected. For every floor and direction it return 0 if there is no
         task or the timestamp of the request if there is one.
@@ -426,7 +434,8 @@ class CommonLedger:
                         0)
 
     def get_selected_jobs(self, id):
-        """
+        """Return selected jobs.
+
         Returns an array representation of all the get tasks that are selected
         bu the id. For every floor and direction it return 0 if there is no
         task or the timestamp of the request if there is one.
@@ -442,7 +451,8 @@ class CommonLedger:
                         0)
 
     def remove_selection(self, floor, direction, id_):
-        """
+        """Remoe selected matching id_.
+
         Removes all select messages matching id.
         """
         if id_ == self._select_msgs[floor, direction, ID]:
@@ -450,9 +460,7 @@ class CommonLedger:
 
 
 if __name__ == '__main__':
-    """
-    Run this too to see how some of the functions works.
-    """
+    """Run this too to see how some of the functions works."""
     a = CommonLedger(4)
     id1 = 100
     a.add_task_get(1, 0)

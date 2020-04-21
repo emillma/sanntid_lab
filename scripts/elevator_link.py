@@ -12,9 +12,7 @@ import logging
 
 
 class ElevatorLink:
-    """
-    Object used to ocmmunicate wit the elevator over TCP
-    """
+    """Object used to ocmmunicate wit the elevator over TCP."""
 
     def __init__(self, port=15657, floor_n=4):
         self.TCP_IP = 'localhost'
@@ -30,7 +28,8 @@ class ElevatorLink:
         self.connected = False
 
     async def connect(self) -> Optional[Exception]:
-        """
+        """Connect to elevator port.
+
         Funtion used to open a TCP connection with the elevator.
 
         Returns
@@ -52,18 +51,19 @@ class ElevatorLink:
                 self.connected = False
 
     async def __aenter__(self):
+        """Open connection."""
         await self.connect()
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
+        """Close connection."""
         if self.connected:
             async with self.writer_lock:
                 self.writer.close()
                 await self.writer.wait_closed()
 
     async def _elev_tell(self, command: str) -> Optional[Exception]:
-        """
-        Base function to send data to the elevator.
+        """Send data to elevator.
 
         Returns
         -------
@@ -71,7 +71,6 @@ class ElevatorLink:
             Error if communication with elevator is broken.
 
         """
-
         try:
             assert self.connected, f'{self} is not connected'
             async with self.writer_lock:
@@ -86,8 +85,8 @@ class ElevatorLink:
             return error
 
     async def _elev_get(self, command: str) -> (Optional[Exception], bytes):
-        """
-        Base function used to get date from the elevator
+        """Get data from elevator.
+
         Returns
         -------
          (Optional[Exception], Optional[bytes])
@@ -110,8 +109,7 @@ class ElevatorLink:
                 await self.connect()
 
     async def stop(self) -> Optional[Exception]:
-        """
-        Tell the elevator to stop.
+        """Tell the elevator to stop.
 
         Returns
         -------
@@ -119,12 +117,10 @@ class ElevatorLink:
             Error if communication with elevator is broken.
 
         """
-
         return await self._elev_tell('01000000')
 
     async def go_up(self) -> Optional[Exception]:
-        """
-        Tell the elevator to go up.
+        """Tell the elevator to go up.
 
         Returns
         -------
@@ -132,7 +128,6 @@ class ElevatorLink:
             Error if communication with elevator is broken.
 
         """
-
         return await self._elev_tell('01010000')
 
     async def go_down(self) -> Optional[Exception]:
@@ -149,8 +144,7 @@ class ElevatorLink:
 
     async def set_button_light(self, floor: int,
                                button: int, value: int) -> Optional[Exception]:
-        """
-
+        """Set a button light.
 
         Parameters
         ----------
@@ -170,9 +164,9 @@ class ElevatorLink:
         return await self._elev_tell(f'02{button:02x}{floor:02x}{value:02x}')
 
     async def set_floor_indicator(self, floor: int) -> Optional[Exception]:
-        """
-        Set the floor indicator. The light at all other floors wil \
-        automatically turn off.
+        """Set floor indicator.
+
+        The light at all other floors wil automatically turn off.
 
         Parameters
         ----------
@@ -184,12 +178,11 @@ class ElevatorLink:
             Error if communication with elevator is broken.
 
         """
-
         return await self._elev_tell(f'03{floor:02x}0000')
 
     async def set_door_light(self, value: int) -> Optional[Exception]:
-        """
-        Turn the door light on or off
+        """Turn the door light on or off.
+
         Parameters
         ----------
         value : int
@@ -203,8 +196,7 @@ class ElevatorLink:
         return await self._elev_tell(f'04{value:02x}0000')
 
     async def set_stop_light(self, value: int) -> Optional[Exception]:
-        """
-        Turn the stop ligh on or off
+        """Turn the stop ligh on or off.
 
         Parameters
         ----------
@@ -216,7 +208,6 @@ class ElevatorLink:
         Optional[Exception]
             Error if communication with elevator is broken.
         """
-
         return await self._elev_tell(f'05{value:02x}0000')
 
     async def get_order_button(self,
@@ -237,13 +228,13 @@ class ElevatorLink:
             Error if communication with elevator is broken.
 
         """
-
         retval, data = await self._elev_get(f'06{button:02x}{floor:02x}00')
         return (retval, data[1]) if not retval else (retval, None)
 
     async def get_floor(self) -> (Optional[Exception], Optional[int]):
-        """
-        Get data from the floor sensors. None if elevator is between floors
+        """Get data from the floor sensors.
+
+        None if elevator is between floors
 
         Returns
         -------
@@ -252,7 +243,6 @@ class ElevatorLink:
             Floor number if elevator is at a flor, else None.
 
         """
-
         retval, data = await self._elev_get('07000000')
         if not retval:
             at_floor = data[1]
@@ -262,8 +252,7 @@ class ElevatorLink:
             return retval, None
 
     async def get_stop_button(self) -> (Optional[Exception], Optional[int]):
-        """
-        Check if the stop button is pressed.
+        """Check if the stop button is pressed.
 
         Returns
         -------
@@ -271,14 +260,12 @@ class ElevatorLink:
             Error if communication with elevator is broken.
             1 if pressed, else 0
         """
-
         retval, data = await self._elev_get('08000000')
         return (retval, data[1]) if not retval else (retval, None)
 
     async def get_obstruction_switch(self) -> (Optional[Exception],
                                                Optional[int]):
-        """
-
+        """Check if obstuction switch is on.
 
         Returns
         -------
@@ -286,10 +273,10 @@ class ElevatorLink:
             Error if communication with elevator is broken..
              1 if obstruction, else 0
         """
-
         retval, data = await self._elev_get('09000000')
         return (retval, data[1]) if not retval else (retval, None)
 
     @property
     def floor_n(self):
+        """Return number of floors."""
         return self.NUMBER_OF_FLOORS

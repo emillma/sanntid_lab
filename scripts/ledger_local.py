@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Feb 24 16:15:09 2020
+Created on Mon Feb 24 16:15:09 2020.
 
 @author: user_id
 """
@@ -22,9 +22,9 @@ UNBLOCK = 1
 STOP = 0
 CONTINUE = 1
 
+
 def merge_in_deliver(deliver_done: np.array, new_timestamp: int = 1e6):
-    """
-    Function used to merge in a new deliver task.
+    """Merge in a new deliver task.
 
     Parameters
     ----------
@@ -38,7 +38,6 @@ def merge_in_deliver(deliver_done: np.array, new_timestamp: int = 1e6):
     None.
 
     """
-
     if not deliver_done[DELIVER]:
         deliver_done[DELIVER] = new_timestamp
     # If the old message is invalid
@@ -46,15 +45,16 @@ def merge_in_deliver(deliver_done: np.array, new_timestamp: int = 1e6):
         if new_timestamp > deliver_done[DONE]:
             deliver_done[DELIVER] = new_timestamp
         else:
-            deliver_done[DELIVER] = np.minimum(deliver_done[DELIVER], new_timestamp)
+            deliver_done[DELIVER] = np.minimum(deliver_done[DELIVER],
+                                               new_timestamp)
     # If the old message is valid
     else:
-        deliver_done[DELIVER] = np.minimum(deliver_done[DELIVER], new_timestamp)
+        deliver_done[DELIVER] = np.minimum(deliver_done[DELIVER],
+                                           new_timestamp)
 
 
 def merge_in_done(deliver_done: np.array, new_timestamp: int = 1e6):
-    """
-    Function used to merge in anew done message.
+    """Merge in anew done message.
 
     Parameters
     ----------
@@ -69,13 +69,12 @@ def merge_in_done(deliver_done: np.array, new_timestamp: int = 1e6):
     None.
 
     """
-
     deliver_done[DONE] = np.maximum(deliver_done[DELIVER], new_timestamp)
 
 
 class LocalLedger:
-    """
-    Class used to keep track off all tasks that are elevator spesific.
+    """Class used to keep track off all tasks that are elevator spesific.
+
     AKA all the deliver requests. These requests are referred to as 'deliver'
     jobs.
     They are represented by a timestamp when the DELIVER was requested and a
@@ -93,10 +92,9 @@ class LocalLedger:
                  stop_continue_msgs: Optional[np.array] = None,
                  block_deblock_msgs: Optional[np.array] = None,
                  json_data: Optional[bytes] = None) -> LocalLedger:
+        """Initialize the ledger.
 
-        """
-        Initialise the ledger.
-        If json_data is not None, it will be decoded and used to initialize \
+        If json_data is not None, it will be decoded and used to initialize
         the object.
 
         Parameters
@@ -117,8 +115,6 @@ class LocalLedger:
             A json representation of a LocalLedger object.
             The default is None.
         """
-
-
         # floor, get/done
         if json_data:
             data = json.loads(json_data.decode())
@@ -154,13 +150,13 @@ class LocalLedger:
                 self.block_deblock_msgs = block_deblock_msgs
 
     def __repr__(self) -> str:
-        """
+        """Return representatnio of ledger.
+
         Returns
         -------
         str
             Readable representation of the ledger.
         """
-
         out = 'Deliver Done Messages\n'
         for floor in range(self.deliver_done_msgs.shape[0]):
             out += f'Floor {floor:2d}:    '
@@ -182,17 +178,18 @@ class LocalLedger:
         return out
 
     def __str__(self) -> str:
-        """
+        """Return string representatnio of ledger.
+
         Returns
         -------
         str
             Readable representation of the ledger.
         """
-
         return self.__repr__()
 
     def __eq__(self, other: LocalLedger) -> bool:
-        """
+        """Implement == operator.
+
         Test if two LocalLedger are equal (==).
 
         Parameters
@@ -203,9 +200,7 @@ class LocalLedger:
         -------
         bool
             True if their data is the same, else False.
-
         """
-
         assert isinstance(other, LocalLedger)
         return (np.array_equal(self.deliver_done_msgs,
                                other.deliver_done_msgs) and
@@ -216,7 +211,8 @@ class LocalLedger:
                 )
 
     def __add__(self, other: LocalLedger) -> LocalLedger:
-        """
+        """Implement + operator.
+
         Merge two LocalLedger together, and return the new LocalLedger.
 
         Parameters
@@ -227,7 +223,6 @@ class LocalLedger:
         -------
         LocalLedger
         """
-
         assert isinstance(other, LocalLedger)
         deliver_done_msgs = self.deliver_done_msgs.copy()
         stop_continue_msgs = self.stop_continue_msgs.copy()
@@ -250,9 +245,9 @@ class LocalLedger:
                            stop_continue_msgs, block_deblock_msgs)
 
     def __iadd__(self, other: LocalLedger) -> LocalLedger:
-        """
+        """Implement += operator.
+
         Overrides the plus equal operator (+=).
-        Parameters
 
         Parameters
         ----------
@@ -263,7 +258,6 @@ class LocalLedger:
         -------
         LocalLedger
         """
-
         if isinstance(other, bytes):
             other = LocalLedger(json_data=other)
         assert isinstance(other, LocalLedger)
@@ -285,7 +279,8 @@ class LocalLedger:
         return self
 
     def encode(self) -> bytes:
-        """
+        """Encode the ledger to bytes.
+
         Translate the object to a json represenation in bytes.
         Uset to send the object over a network connection.
 
@@ -294,7 +289,6 @@ class LocalLedger:
         bytes
             json representation of the object.
         """
-
         data = {}
         data['type'] = 'LocalLedger'
         data['NUMBER_OF_FLOORS'] = self.NUMBER_OF_FLOORS
@@ -304,36 +298,42 @@ class LocalLedger:
         return json.dumps(data).encode()
 
     def add_task_deliver(self, floor, timestamp=None):
+        """Add a deliver task."""
         # up: 0 down: 1
         if timestamp is None:
             timestamp = now()
         merge_in_deliver(self.deliver_done_msgs[floor, :], timestamp)
 
     def add_task_done(self, floor, timestamp=None):
+        """Add a Done message."""
         # up: 0 down: 1
         if timestamp is None:
             timestamp = now()
         merge_in_done(self.deliver_done_msgs[floor, :], timestamp)
 
     def add_stop(self, timestamp=None):
+        """Add a Stop message."""
         if timestamp is None:
             timestamp = now()
         self.stop_continue_msgs[STOP] = np.maximum(
             self.stop_continue_msgs[STOP], timestamp)
 
     def add_continue(self, timestamp=None):
+        """Add a Continue message."""
         if timestamp is None:
             timestamp = now()
         self.stop_continue_msgs[CONTINUE] = np.maximum(
             self.stop_continue_msgs[CONTINUE], timestamp)
 
     def add_block(self, timestamp=None):
+        """Add a Block message."""
         if timestamp is None:
             timestamp = now()
         self.block_deblock_msgs[BLOCK] = np.maximum(
             self.stop_continue_msgs[UNBLOCK], timestamp)
 
     def add_deblock(self, timestamp=None):
+        """Add a Deblock message."""
         if timestamp is None:
             timestamp = now()
         self.block_deblock_msgs[UNBLOCK] = np.maximum(
@@ -341,6 +341,7 @@ class LocalLedger:
 
     @property
     def jobs(self):
+        """Return active deliver jobs."""
         return np.where((self.deliver_done_msgs[:, DELIVER]
                          > self.deliver_done_msgs[:, DONE]).ravel(),
                         self.deliver_done_msgs[:, DELIVER],
@@ -348,18 +349,19 @@ class LocalLedger:
 
     @property
     def stop(self):
+        """Test if stop is pressed."""
         return (self.stop_continue_msgs[STOP]
                 > self.stop_continue_msgs[CONTINUE])
 
     @property
     def block(self):
+        """Test if blocked."""
         return (self.block_deblock_msgs[BLOCK]
                 > self.block_deblock_msgs[UNBLOCK])
 
+
 if __name__ == '__main__':
-    """
-    Run this too to see how some of the functions works.
-    """
+    """Run this too to see how some of the functions works."""
     a = LocalLedger(4)
     b = LocalLedger(4)
     b.add_task_done(1, now())
@@ -368,6 +370,6 @@ if __name__ == '__main__':
     b.add_task_deliver(1, now() + 1)
     a.add_stop(now())
     c = a + b
-    d = LocalLedger(json_data = c.encode())
+    d = LocalLedger(json_data=c.encode())
     print(c)
     print('D == A + B: ', c == a+b)

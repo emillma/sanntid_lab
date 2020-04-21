@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Feb 19 16:55:19 2020
+Created on Wed Feb 19 16:55:19 2020.
 
 @author: user_id
 
@@ -11,25 +11,25 @@ Husk a starte heissim før du kjører.
 """
 from __future__ import annotations
 from elevator_link import ElevatorLink
+
 import itertools
-import numpy as np
 import asyncio
-import itertools
+
 from ledger_common import CommonLedger
 from ledger_local import LocalLedger
+
 from utils import now
 
 
 class ButtonHandler:
-    """
-    Object used to create tasks from buttons and obstruction.
-    """
+    """Object used to create tasks from buttons and obstruction."""
 
     def __init__(self,
                  elevator_link: ElevatorLink,
                  local_ledger: LocalLedger,
                  common_ledger: CommonLedger):
-        """
+        """Initialize the handler.
+
         Parameters
         ----------
         elevator_link : ElevatorLink
@@ -44,7 +44,6 @@ class ButtonHandler:
         None.
 
         """
-
         self.elevator_link = elevator_link
         self.local_ledger = local_ledger
         self.common_ledger = common_ledger

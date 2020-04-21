@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Feb 26 19:12:42 2020
+Created on Wed Feb 26 19:12:42 2020.
 
 @author: user_id
 """
@@ -10,8 +10,7 @@ import time
 
 
 def toclock(time) -> str:
-    """
-    Function used to convert the time to a pretty format.
+    """Convert the time to a pretty format.
 
     Parameters
     ----------
@@ -24,8 +23,6 @@ def toclock(time) -> str:
         Pressy version of the time, or 'None' if the time is 0.
 
     """
-
-
     if time:
         return datetime.datetime.fromtimestamp(time / 1e6).strftime(
             "%H:%M:%S.%f")
@@ -34,16 +31,17 @@ def toclock(time) -> str:
 
 
 def time_to_int(time):
+    """Translate time to int representation."""
     return int(round(time * 1e6))
 
 
 def int_to_time(number):
+    """Translate int to time representation."""
     return number / 1e6
 
 
 def now() -> int:
-    """
-    Function used to get the curent time.
+    """Get the curent tim as int.
 
     Returns
     -------
