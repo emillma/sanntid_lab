@@ -71,18 +71,20 @@ class ElevatorLink:
             Error if communication with elevator is broken.
 
         """
-        try:
-            assert self.connected, f'{self} is not connected'
-            async with self.writer_lock:
-                self.writer.write(bytearray.fromhex(command))
-                await self.writer.drain()
+        while 1:
+            try:
+                assert self.connected, f'{self} is not connected'
+                async with self.writer_lock:
+                    self.writer.write(bytearray.fromhex(command))
+                    await self.writer.drain()
+                return
 
-        except (ConnectionResetError, AssertionError) as error:
-            logging.warning(error)
-            self.connected = False
-            if not self.connection_lock.locked():
-                await self.connect()
-            return error
+            except (ConnectionResetError, AssertionError) as error:
+                logging.warning(error)
+                self.connected = False
+                if not self.connection_lock.locked():
+                    await self.connect()
+                await asyncio.sleep(0.1)
 
     async def _elev_get(self, command: str) -> (Optional[Exception], bytes):
         """Get data from elevator.
@@ -94,19 +96,21 @@ class ElevatorLink:
             Data
 
         """
-        retval = await self._elev_tell(command)
-        if retval:
-            return retval, None
-        else:
+
+
+        while True:
             try:
                 async with self.reader_lock:
-                    return None, await self.reader.read(4)
+                    await self._elev_tell(command)
+                    data = await self.reader.read(4)
+                    assert data, "No data received"
+                    return None, data
 
-            except ConnectionResetError as error:
+            except (ConnectionResetError, AssertionError) as error:
                 logging.error(error)
-                return error, None
                 self.connected = False
                 await self.connect()
+                await asyncio.sleep(0.1)
 
     async def stop(self) -> Optional[Exception]:
         """Tell the elevator to stop.
@@ -244,7 +248,7 @@ class ElevatorLink:
 
         """
         retval, data = await self._elev_get('07000000')
-        if not retval:
+        if retval is None:
             at_floor = data[1]
             floor = data[2]
             return (retval, floor) if at_floor else (retval, None)

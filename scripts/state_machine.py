@@ -222,12 +222,10 @@ class Init(State):
     async def process(self):
         """Fonction called when processing state."""
         retval, floor = await self.parent.elevator_link.get_floor()
-        assert retval is None
         if floor is None:
             while True:
                 await self.parent.elevator_link.go_down()
                 retval, floor = await self.parent.elevator_link.get_floor()
-                assert retval is None
                 if floor is not None:
                     return AtFloor
                 await asyncio.sleep(SLEEPTIME)
@@ -387,8 +385,7 @@ class Travel(State):
 
     async def enter(self):
         """Fonction called when entering state."""
-        retval = await self.set_direction()
-        assert retval is None
+        await self.set_direction()
         retval, floor = await self.parent.elevator_link.get_floor()
         self.last_floor = floor
 
@@ -399,9 +396,8 @@ class Travel(State):
                 await asyncio.sleep(1)
                 continue
 
-            retval = await self.set_direction()
+            await self.set_direction()
             retval, floor = await self.parent.elevator_link.get_floor()
-            assert retval is None
             if floor is not None and floor != self.last_floor:
                 return AtFloor
             await asyncio.sleep(SLEEPTIME)
@@ -489,15 +485,18 @@ class StateMachine:
     async def run_elevator(self):
         """Run the elevator state machine coroutine."""
         while 1:
-            logging.info(f'Entering \t {type(self.state)}, {self.id}')
-            await self.state.enter()
+            try:
+                logging.info(f'Entering \t {type(self.state)}, {self.id}')
+                await self.state.enter()
 
-            logging.info(f'Processing \t {type(self.state)}, {self.id}')
-            state_generator = await self.state.process()
+                logging.info(f'Processing \t {type(self.state)}, {self.id}')
+                state_generator = await self.state.process()
 
-            logging.info(f'Leaving \t {type(self.state)}, {self.id}\n')
-            await self.state.leave()
-            self.state = state_generator(self)
+                logging.info(f'Leaving \t {type(self.state)}, {self.id}\n')
+                await self.state.leave()
+                self.state = state_generator(self)
+            except:
+                self.state = Init(self)
 
     async def run(self):
         """Run the coroutine."""

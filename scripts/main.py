@@ -70,8 +70,8 @@ async def elevator(elevator_number):
 async def main():
     """Run multiple elevators."""
     await asyncio.gather(
-        elevator(0),
-        elevator(1),
+        # elevator(0),
+        # elevator(1),
         elevator(2))
 
 if __name__ == '__main__':
