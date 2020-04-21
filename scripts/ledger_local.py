@@ -76,7 +76,7 @@ class LocalLedger:
     """Class used to keep track off all tasks that are elevator spesific.
 
     AKA all the deliver requests. These requests are referred to as 'deliver'
-    jobs.
+    tasks.
     They are represented by a timestamp when the DELIVER was requested and a
     timestamp when a request was compleated (DONE).
 
@@ -340,8 +340,8 @@ class LocalLedger:
             self.stop_continue_msgs[UNBLOCK], timestamp)
 
     @property
-    def jobs(self):
-        """Return active deliver jobs."""
+    def tasks(self):
+        """Return active deliver tasks."""
         return np.where((self.deliver_done_msgs[:, DELIVER]
                          > self.deliver_done_msgs[:, DONE]).ravel(),
                         self.deliver_done_msgs[:, DELIVER],

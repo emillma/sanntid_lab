@@ -32,13 +32,13 @@ class LightHandler:
     async def run(self):
         """Run the coroutine."""
         while True:
-            local_jobs = self.local_ledger.jobs
-            common_jobs = self.common_ledger.jobs
-            for floor, value in enumerate(local_jobs):
+            local_tasks = self.local_ledger.tasks
+            common_tasks = self.common_ledger.tasks
+            for floor, value in enumerate(local_tasks):
                 await self.elevator_link.set_button_light(floor, 2,
                                                           1 if value else 0)
 
-            for floor, direction in enumerate(common_jobs):
+            for floor, direction in enumerate(common_tasks):
                 up, down = direction
                 await self.elevator_link.set_button_light(floor, 0,
                                                           1 if up else 0)

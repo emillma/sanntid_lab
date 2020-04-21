@@ -129,7 +129,7 @@ class CommonLedger:
 
     This class handles all the tasks that the elevators might have in common
     AKA all the up and down requests. These requests are referred to as 'get'
-    jobs.
+    tasks.
     They are represented by a timestamp when the UP og DOWN was requested and a
     timestamp when a request was compleated (DONE).
 
@@ -403,8 +403,8 @@ class CommonLedger:
         self._select_msgs[np.where(old)] = (0, 0, 0)
 
     @property
-    def jobs(self):
-        """Return all available jobs.
+    def tasks(self):
+        """Return all available tasks.
 
         Returns an array representation of all the get tasks. For every floor
         and direction it return 0 if there is no task or the timestamp of the
@@ -417,8 +417,8 @@ class CommonLedger:
                         0)
 
     @property
-    def available_jobs(self):
-        """Return all jobs not selected.
+    def available_tasks(self):
+        """Return all tasks not selected.
 
         Returns an array representation of all the get tasks that are not
         selected. For every floor and direction it return 0 if there is no
@@ -433,8 +433,8 @@ class CommonLedger:
                         self._get_done_msgs[:, :, GET],
                         0)
 
-    def get_selected_jobs(self, id):
-        """Return selected jobs.
+    def get_selected_tasks(self, id):
+        """Return selected tasks.
 
         Returns an array representation of all the get tasks that are selected
         bu the id. For every floor and direction it return 0 if there is no
